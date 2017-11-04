@@ -227,12 +227,12 @@ var MainNetParams = Params{
 	Net:         wire.MainNet,
 	DefaultPort: "8333",
 	DNSSeeds: []DNSSeed{
-		{"seed.bitcoin.sipa.be", true},
-		{"dnsseed.bluematt.me", true},
-		{"dnsseed.bitcoin.dashjr.org", false},
-		{"seed.bitcoinstats.com", true},
-		{"seed.bitnodes.io", false},
-		{"seed.bitcoin.jonasschnelli.ch", true},
+		{"seed.bitcoinabc.org", true},
+		{"seed-abc.bitcoinforks.org", true},
+		{"btccash-seeder.bitcoinunlimited.info", true},
+		{"seed.bitprim.org", true},
+		{"seed.deadalnix.me", true},
+		{""seeder.criptolayer.net, true},
 	},
 
 	// Chain parameters
@@ -272,6 +272,9 @@ var MainNetParams = Params{
 		{343185, newHashFromStr("0000000000000000072b8bf361d01a6ba7d445dd024203fafc78768ed4368554")},
 		{352940, newHashFromStr("000000000000000010755df42dba556bb72be6a32f3ce0b6941ce4430152c9ff")},
 		{382320, newHashFromStr("00000000000000000a8dc6ed5b133d0eb2fd6af56203e4159789b092defd8ab2")},
+                // UAHF block
+		{478559, newHashFromStr("000000000000000000651ef99cb9fcbe0dadde1d424bd9f15ff20136191a5eec")},
+		{490000, newHashFromStr("0000000000000000018ade0e75b4c21db72f05db1e4fffb870c26d6c765dc6d1")},
 	},
 
 	// Consensus rule change deployments.
@@ -290,11 +293,6 @@ var MainNetParams = Params{
 			BitNumber:  0,
 			StartTime:  1462060800, // May 1st, 2016
 			ExpireTime: 1493596800, // May 1st, 2017
-		},
-		DeploymentSegwit: {
-			BitNumber:  1,
-			StartTime:  1479168000, // November 15, 2016 UTC
-			ExpireTime: 1510704000, // November 15, 2017 UTC.
 		},
 	},
 
