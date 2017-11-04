@@ -41,10 +41,6 @@ const (
 	// maximum allowed size.
 	ErrBlockTooBig
 
-	// ErrBlockWeightTooHigh indicates that the block's computed weight
-	// metric exceeds the maximum allowed value.
-	ErrBlockWeightTooHigh
-
 	// ErrBlockVersionTooOld indicates the block version is too old and is
 	// no longer accepted since the majority of the network has upgraded
 	// to a newer version.
@@ -195,20 +191,6 @@ const (
 	// the stack.
 	ErrScriptValidation
 
-	// ErrUnexpectedWitness indicates that a block includes transactions
-	// with witness data, but doesn't also have a witness commitment within
-	// the coinbase transaction.
-	ErrUnexpectedWitness
-
-	// ErrInvalidWitnessCommitment indicates that a block's witness
-	// commitment is not well formed.
-	ErrInvalidWitnessCommitment
-
-	// ErrWitnessCommitmentMismatch indicates that the witness commitment
-	// included in the block's coinbase transaction doesn't match the
-	// manually computed witness commitment.
-	ErrWitnessCommitmentMismatch
-
 	// ErrPreviousBlockUnknown indicates that the previous block is not known.
 	ErrPreviousBlockUnknown
 
@@ -227,7 +209,6 @@ var errorCodeStrings = map[ErrorCode]string{
 	ErrDuplicateBlock:            "ErrDuplicateBlock",
 	ErrBlockTooBig:               "ErrBlockTooBig",
 	ErrBlockVersionTooOld:        "ErrBlockVersionTooOld",
-	ErrBlockWeightTooHigh:        "ErrBlockWeightTooHigh",
 	ErrInvalidTime:               "ErrInvalidTime",
 	ErrTimeTooOld:                "ErrTimeTooOld",
 	ErrTimeTooNew:                "ErrTimeTooNew",
@@ -261,9 +242,6 @@ var errorCodeStrings = map[ErrorCode]string{
 	ErrBadCoinbaseHeight:         "ErrBadCoinbaseHeight",
 	ErrScriptMalformed:           "ErrScriptMalformed",
 	ErrScriptValidation:          "ErrScriptValidation",
-	ErrUnexpectedWitness:         "ErrUnexpectedWitness",
-	ErrInvalidWitnessCommitment:  "ErrInvalidWitnessCommitment",
-	ErrWitnessCommitmentMismatch: "ErrWitnessCommitmentMismatch",
 	ErrPreviousBlockUnknown:      "ErrPreviousBlockUnknown",
 	ErrInvalidAncestorBlock:      "ErrInvalidAncestorBlock",
 	ErrPrevBlockNotBest:          "ErrPrevBlockNotBest",
