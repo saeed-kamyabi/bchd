@@ -21,7 +21,7 @@ import (
 	"github.com/bchsuite/bchd/chaincfg"
 	"github.com/bchsuite/bchd/chaincfg/chainhash"
 	"github.com/bchsuite/bchd/wire"
-	"github.com/bchsuite/go-socks/socks"
+	"github.com/btcsuite/go-socks/socks"
 	"github.com/davecgh/go-spew/spew"
 )
 

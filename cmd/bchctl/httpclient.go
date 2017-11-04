@@ -11,7 +11,7 @@ import (
 	"net/http"
 
 	"github.com/bchsuite/bchd/bchjson"
-	"github.com/bchsuite/go-socks/socks"
+	"github.com/btcsuite/go-socks/socks"
 )
 
 // newHTTPClient returns a new HTTP client that is configured according to the
