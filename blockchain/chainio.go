@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2017 The btcsuite developers
+// Copyright (c) 2015-2017 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -12,10 +12,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
+	"github.com/bchsuite/bchd/chaincfg/chainhash"
+	"github.com/bchsuite/bchd/database"
+	"github.com/bchsuite/bchd/wire"
+	"github.com/bchsuite/bchutil"
 )
 
 var (
@@ -137,7 +137,7 @@ func isDbBucketNotFoundErr(err error) bool {
 //  - header code: 0x13 (coinbase, height 9)
 //  - transaction version: 1
 //  - compressed txout 0:
-//    - 0x32: VLQ-encoded compressed amount for 5000000000 (50 BTC)
+//    - 0x32: VLQ-encoded compressed amount for 5000000000 (50 BCH)
 //    - 0x05: special script type pay-to-pubkey
 //    - 0x11...5c: x-coordinate of the pubkey
 //
@@ -154,14 +154,14 @@ func isDbBucketNotFoundErr(err error) bool {
 //    - header code: 0x00 (was not the final unspent output for containing tx)
 //    - transaction version: Nothing since header code is 0
 //    - compressed txout:
-//      - 0x91f20f: VLQ-encoded compressed amount for 34405000000 (344.05 BTC)
+//      - 0x91f20f: VLQ-encoded compressed amount for 34405000000 (344.05 BCH)
 //      - 0x00: special script type pay-to-pubkey-hash
 //      - 0x6e...86: pubkey hash
 //  - Second to last spent output:
 //    - header code: 0x8b9970 (not coinbase, height 100024)
 //    - transaction version: 1
 //    - compressed txout:
-//      - 0x86c647: VLQ-encoded compressed amount for 13761000000 (137.61 BTC)
+//      - 0x86c647: VLQ-encoded compressed amount for 13761000000 (137.61 BCH)
 //      - 0x00: special script type pay-to-pubkey-hash
 //      - 0xb2...ec: pubkey hash
 // -----------------------------------------------------------------------------
@@ -414,7 +414,7 @@ func serializeSpendJournalEntry(stxos []spentTxOut) []byte {
 // view MUST have the utxos referenced by all of the transactions available for
 // the passed block since that information is required to reconstruct the spent
 // txouts.
-func dbFetchSpendJournalEntry(dbTx database.Tx, block *btcutil.Block, view *UtxoViewpoint) ([]spentTxOut, error) {
+func dbFetchSpendJournalEntry(dbTx database.Tx, block *bchutil.Block, view *UtxoViewpoint) ([]spentTxOut, error) {
 	// Exclude the coinbase transaction since it can't spend anything.
 	spendBucket := dbTx.Metadata().Bucket(spendJournalBucketName)
 	serialized := spendBucket.Get(block.Hash()[:])
@@ -511,7 +511,7 @@ func dbRemoveSpendJournalEntry(dbTx database.Tx, blockHash *chainhash.Hash) erro
 //  - header code: 0x03 (coinbase, output zero unspent, 0 bytes of unspentness)
 //  - unspentness: Nothing since it is zero bytes
 //  - compressed txout 0:
-//    - 0x32: VLQ-encoded compressed amount for 5000000000 (50 BTC)
+//    - 0x32: VLQ-encoded compressed amount for 5000000000 (50 BCH)
 //    - 0x04: special script type pay-to-pubkey
 //    - 0x96...52: x-coordinate of the pubkey
 //
@@ -531,11 +531,11 @@ func dbRemoveSpendJournalEntry(dbTx database.Tx, blockHash *chainhash.Hash) erro
 //  - unspentness: [0x01] (bit 0 is set, so output 0+2 = 2 is unspent)
 //    NOTE: It's +2 since the first two outputs are encoded in the header code
 //  - compressed txout 0:
-//    - 0x12: VLQ-encoded compressed amount for 20000000 (0.2 BTC)
+//    - 0x12: VLQ-encoded compressed amount for 20000000 (0.2 BCH)
 //    - 0x00: special script type pay-to-pubkey-hash
 //    - 0xe2...8a: pubkey hash
 //  - compressed txout 2:
-//    - 0x8009: VLQ-encoded compressed amount for 15000000 (0.15 BTC)
+//    - 0x8009: VLQ-encoded compressed amount for 15000000 (0.15 BCH)
 //    - 0x00: special script type pay-to-pubkey-hash
 //    - 0xb8...58: pubkey hash
 //
@@ -556,7 +556,7 @@ func dbRemoveSpendJournalEntry(dbTx database.Tx, blockHash *chainhash.Hash) erro
 //  - unspentness: [0x00 0x00 0x10] (bit 20 is set, so output 20+2 = 22 is unspent)
 //    NOTE: It's +2 since the first two outputs are encoded in the header code
 //  - compressed txout 22:
-//    - 0x8ba5b9e763: VLQ-encoded compressed amount for 366875659 (3.66875659 BTC)
+//    - 0x8ba5b9e763: VLQ-encoded compressed amount for 366875659 (3.66875659 BCH)
 //    - 0x01: special script type pay-to-script-hash
 //    - 0x1d...e6: script hash
 // -----------------------------------------------------------------------------
@@ -1057,7 +1057,7 @@ func dbPutBestState(dbTx database.Tx, snapshot *BestState, workSum *big.Int) err
 // the genesis block, so it must only be called on an uninitialized database.
 func (b *BlockChain) createChainState() error {
 	// Create a new node from the genesis block and set it as the best node.
-	genesisBlock := btcutil.NewBlock(b.chainParams.GenesisBlock)
+	genesisBlock := bchutil.NewBlock(b.chainParams.GenesisBlock)
 	header := &genesisBlock.MsgBlock().Header
 	node := newBlockNode(header, 0)
 	node.status = statusDataStored | statusValid
@@ -1203,7 +1203,7 @@ func (b *BlockChain) initChainState() error {
 
 		// Initialize the state related to the best block.
 		blockSize := uint64(len(blockBytes))
-		blockWeight := uint64(GetBlockWeight(btcutil.NewBlock(&block)))
+		blockWeight := uint64(GetBlockWeight(bchutil.NewBlock(&block)))
 		numTxns := uint64(len(block.Transactions))
 		b.stateSnapshot = newBestState(tip, blockSize, blockWeight,
 			numTxns, state.totalTxns, tip.CalcPastMedianTime())
@@ -1254,9 +1254,9 @@ func dbFetchHeaderByHeight(dbTx database.Tx, height int32) (*wire.BlockHeader, e
 }
 
 // dbFetchBlockByNode uses an existing database transaction to retrieve the
-// raw block for the provided node, deserialize it, and return a btcutil.Block
+// raw block for the provided node, deserialize it, and return a bchutil.Block
 // with the height set.
-func dbFetchBlockByNode(dbTx database.Tx, node *blockNode) (*btcutil.Block, error) {
+func dbFetchBlockByNode(dbTx database.Tx, node *blockNode) (*bchutil.Block, error) {
 	// Load the raw block bytes from the database.
 	blockBytes, err := dbTx.FetchBlock(&node.hash)
 	if err != nil {
@@ -1264,7 +1264,7 @@ func dbFetchBlockByNode(dbTx database.Tx, node *blockNode) (*btcutil.Block, erro
 	}
 
 	// Create the encapsulated block and set the height appropriately.
-	block, err := btcutil.NewBlockFromBytes(blockBytes)
+	block, err := bchutil.NewBlockFromBytes(blockBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -1276,7 +1276,7 @@ func dbFetchBlockByNode(dbTx database.Tx, node *blockNode) (*btcutil.Block, erro
 // BlockByHeight returns the block at the given height in the main chain.
 //
 // This function is safe for concurrent access.
-func (b *BlockChain) BlockByHeight(blockHeight int32) (*btcutil.Block, error) {
+func (b *BlockChain) BlockByHeight(blockHeight int32) (*bchutil.Block, error) {
 	// Lookup the block height in the best chain.
 	node := b.bestChain.NodeByHeight(blockHeight)
 	if node == nil {
@@ -1285,7 +1285,7 @@ func (b *BlockChain) BlockByHeight(blockHeight int32) (*btcutil.Block, error) {
 	}
 
 	// Load the block from the database and return it.
-	var block *btcutil.Block
+	var block *bchutil.Block
 	err := b.db.View(func(dbTx database.Tx) error {
 		var err error
 		block, err = dbFetchBlockByNode(dbTx, node)
@@ -1298,7 +1298,7 @@ func (b *BlockChain) BlockByHeight(blockHeight int32) (*btcutil.Block, error) {
 // the appropriate chain height set.
 //
 // This function is safe for concurrent access.
-func (b *BlockChain) BlockByHash(hash *chainhash.Hash) (*btcutil.Block, error) {
+func (b *BlockChain) BlockByHash(hash *chainhash.Hash) (*bchutil.Block, error) {
 	// Lookup the block hash in block index and ensure it is in the best
 	// chain.
 	node := b.index.LookupNode(hash)
@@ -1308,7 +1308,7 @@ func (b *BlockChain) BlockByHash(hash *chainhash.Hash) (*btcutil.Block, error) {
 	}
 
 	// Load the block from the database and return it.
-	var block *btcutil.Block
+	var block *bchutil.Block
 	err := b.db.View(func(dbTx database.Tx) error {
 		var err error
 		block, err = dbFetchBlockByNode(dbTx, node)

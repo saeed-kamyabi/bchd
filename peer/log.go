@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2016 The btcsuite developers
+// Copyright (c) 2015-2016 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btclog"
+	"github.com/bchsuite/bchd/chaincfg/chainhash"
+	"github.com/bchsuite/bchd/txscript"
+	"github.com/bchsuite/bchd/wire"
+	"github.com/bchsuite/bchlog"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 // log is a logger that is initialized with no output filters.  This
 // means the package will not perform any logging by default until the caller
 // requests it.
-var log btclog.Logger
+var log bchlog.Logger
 
 // The default amount of logging is none.
 func init() {
@@ -34,11 +34,11 @@ func init() {
 // DisableLog disables all library log output.  Logging output is disabled
 // by default until UseLogger is called.
 func DisableLog() {
-	log = btclog.Disabled
+	log = bchlog.Disabled
 }
 
 // UseLogger uses a specified Logger to output package logging info.
-func UseLogger(logger btclog.Logger) {
+func UseLogger(logger bchlog.Logger) {
 	log = logger
 }
 

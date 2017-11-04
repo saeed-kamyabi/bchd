@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2016 The btcsuite developers
+// Copyright (c) 2015-2016 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -10,18 +10,18 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btclog"
+	"github.com/bchsuite/bchd/database"
+	"github.com/bchsuite/bchlog"
 	flags "github.com/jessevdk/go-flags"
 )
 
 const (
-	// blockDbNamePrefix is the prefix for the btcd block database.
+	// blockDbNamePrefix is the prefix for the bchd block database.
 	blockDbNamePrefix = "blocks"
 )
 
 var (
-	log             btclog.Logger
+	log             bchlog.Logger
 	shutdownChannel = make(chan error)
 )
 
@@ -61,11 +61,11 @@ func loadBlockDB() (database.DB, error) {
 // around the fact that deferred functions do not run when os.Exit() is called.
 func realMain() error {
 	// Setup logging.
-	backendLogger := btclog.NewBackend(os.Stdout)
+	backendLogger := bchlog.NewBackend(os.Stdout)
 	defer os.Stdout.Sync()
 	log = backendLogger.Logger("MAIN")
 	dbLog := backendLogger.Logger("BCDB")
-	dbLog.SetLevel(btclog.LevelDebug)
+	dbLog.SetLevel(bchlog.LevelDebug)
 	database.UseLogger(dbLog)
 
 	// Setup the parser options and commands.

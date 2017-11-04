@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2016 The btcsuite developers
+// Copyright (c) 2013-2016 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -17,11 +17,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/go-socks/socks"
+	"github.com/bchsuite/bchd/blockchain"
+	"github.com/bchsuite/bchd/chaincfg"
+	"github.com/bchsuite/bchd/chaincfg/chainhash"
+	"github.com/bchsuite/bchd/wire"
+	"github.com/bchsuite/go-socks/socks"
 	"github.com/davecgh/go-spew/spew"
 )
 

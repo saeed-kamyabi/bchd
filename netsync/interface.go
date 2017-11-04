@@ -1,17 +1,17 @@
-// Copyright (c) 2017 The btcsuite developers
+// Copyright (c) 2017 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
 package netsync
 
 import (
-	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/mempool"
-	"github.com/btcsuite/btcd/peer"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
+	"github.com/bchsuite/bchd/blockchain"
+	"github.com/bchsuite/bchd/chaincfg"
+	"github.com/bchsuite/bchd/chaincfg/chainhash"
+	"github.com/bchsuite/bchd/mempool"
+	"github.com/bchsuite/bchd/peer"
+	"github.com/bchsuite/bchd/wire"
+	"github.com/bchsuite/bchutil"
 )
 
 // PeerNotifier exposes methods to notify peers of status changes to
@@ -24,7 +24,7 @@ type PeerNotifier interface {
 
 	RelayInventory(invVect *wire.InvVect, data interface{})
 
-	TransactionConfirmed(tx *btcutil.Tx)
+	TransactionConfirmed(tx *bchutil.Tx)
 }
 
 // Config is a configuration struct used to initialize a new SyncManager.

@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2016 The btcsuite developers
+// Copyright (c) 2015-2016 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -14,18 +14,18 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcd/database/internal/treap"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
-	"github.com/btcsuite/goleveldb/leveldb"
-	"github.com/btcsuite/goleveldb/leveldb/comparer"
-	ldberrors "github.com/btcsuite/goleveldb/leveldb/errors"
-	"github.com/btcsuite/goleveldb/leveldb/filter"
-	"github.com/btcsuite/goleveldb/leveldb/iterator"
-	"github.com/btcsuite/goleveldb/leveldb/opt"
-	"github.com/btcsuite/goleveldb/leveldb/util"
+	"github.com/bchsuite/bchd/chaincfg/chainhash"
+	"github.com/bchsuite/bchd/database"
+	"github.com/bchsuite/bchd/database/internal/treap"
+	"github.com/bchsuite/bchd/wire"
+	"github.com/bchsuite/bchutil"
+	"github.com/bchsuite/goleveldb/leveldb"
+	"github.com/bchsuite/goleveldb/leveldb/comparer"
+	ldberrors "github.com/bchsuite/goleveldb/leveldb/errors"
+	"github.com/bchsuite/goleveldb/leveldb/filter"
+	"github.com/bchsuite/goleveldb/leveldb/iterator"
+	"github.com/bchsuite/goleveldb/leveldb/opt"
+	"github.com/bchsuite/goleveldb/leveldb/util"
 )
 
 const (
@@ -1146,7 +1146,7 @@ func (tx *transaction) hasBlock(hash *chainhash.Hash) bool {
 //   - ErrTxClosed if the transaction has already been closed
 //
 // This function is part of the database.Tx interface implementation.
-func (tx *transaction) StoreBlock(block *btcutil.Block) error {
+func (tx *transaction) StoreBlock(block *bchutil.Block) error {
 	// Ensure transaction state is valid.
 	if err := tx.checkClosed(); err != nil {
 		return err

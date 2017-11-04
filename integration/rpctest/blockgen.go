@@ -1,4 +1,4 @@
-// Copyright (c) 2016 The btcsuite developers
+// Copyright (c) 2016 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -11,12 +11,12 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
+	"github.com/bchsuite/bchd/blockchain"
+	"github.com/bchsuite/bchd/chaincfg"
+	"github.com/bchsuite/bchd/chaincfg/chainhash"
+	"github.com/bchsuite/bchd/txscript"
+	"github.com/bchsuite/bchd/wire"
+	"github.com/bchsuite/bchutil"
 )
 
 // solveBlock attempts to find a nonce which makes the passed block header hash
@@ -88,7 +88,7 @@ func standardCoinbaseScript(nextBlockHeight int32, extraNonce uint64) ([]byte, e
 // createCoinbaseTx returns a coinbase transaction paying an appropriate
 // subsidy based on the passed block height to the provided address.
 func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int32,
-	addr btcutil.Address, net *chaincfg.Params) (*btcutil.Tx, error) {
+	addr bchutil.Address, net *chaincfg.Params) (*bchutil.Tx, error) {
 
 	// Create the script to pay to the provided payment address.
 	pkScript, err := txscript.PayToAddrScript(addr)
@@ -109,7 +109,7 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int32,
 		Value:    blockchain.CalcBlockSubsidy(nextBlockHeight, net),
 		PkScript: pkScript,
 	})
-	return btcutil.NewTx(tx), nil
+	return bchutil.NewTx(tx), nil
 }
 
 // CreateBlock creates a new block building from the previous block with a
@@ -117,9 +117,9 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int32,
 // initialized), then the timestamp of the previous block will be used plus 1
 // second is used. Passing nil for the previous block results in a block that
 // builds off of the genesis block for the specified chain.
-func CreateBlock(prevBlock *btcutil.Block, inclusionTxs []*btcutil.Tx,
+func CreateBlock(prevBlock *bchutil.Block, inclusionTxs []*bchutil.Tx,
 	blockVersion int32, blockTime time.Time,
-	miningAddr btcutil.Address, net *chaincfg.Params) (*btcutil.Block, error) {
+	miningAddr bchutil.Address, net *chaincfg.Params) (*bchutil.Block, error) {
 
 	var (
 		prevHash      *chainhash.Hash
@@ -162,7 +162,7 @@ func CreateBlock(prevBlock *btcutil.Block, inclusionTxs []*btcutil.Tx,
 	}
 
 	// Create a new block ready to be solved.
-	blockTxns := []*btcutil.Tx{coinbaseTx}
+	blockTxns := []*bchutil.Tx{coinbaseTx}
 	if inclusionTxs != nil {
 		blockTxns = append(blockTxns, inclusionTxs...)
 	}
@@ -186,7 +186,7 @@ func CreateBlock(prevBlock *btcutil.Block, inclusionTxs []*btcutil.Tx,
 		return nil, errors.New("Unable to solve block")
 	}
 
-	utilBlock := btcutil.NewBlock(&block)
+	utilBlock := bchutil.NewBlock(&block)
 	utilBlock.SetHeight(blockHeight)
 	return utilBlock, nil
 }

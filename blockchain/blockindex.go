@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2017 The btcsuite developers
+// Copyright (c) 2015-2017 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/bchsuite/bchd/chaincfg"
+	"github.com/bchsuite/bchd/chaincfg/chainhash"
+	"github.com/bchsuite/bchd/database"
+	"github.com/bchsuite/bchd/wire"
 )
 
 // blockStatus is a bit field representing the validation state of the block.

@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2017 The btcsuite developers
+// Copyright (c) 2013-2017 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/btcsuite/btcd/btcec"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/bchsuite/bchd/bchec"
+	"github.com/bchsuite/bchd/wire"
 )
 
 // ScriptFlags is a bitmask defining additional operations or tests that will be
@@ -113,7 +113,7 @@ const (
 )
 
 // halforder is used to tame ECDSA malleability (see BIP0062).
-var halfOrder = new(big.Int).Rsh(btcec.S256().N, 1)
+var halfOrder = new(big.Int).Rsh(bchec.S256().N, 1)
 
 // Engine is the virtual machine that executes scripts.
 type Engine struct {
@@ -583,7 +583,7 @@ func (vm *Engine) checkHashTypeEncoding(hashType SigHashType) error {
 // the strict encoding requirements if enabled.
 func (vm *Engine) checkPubKeyEncoding(pubKey []byte) error {
 	if vm.hasFlag(ScriptVerifyWitnessPubKeyType) &&
-		vm.isWitnessVersionActive(0) && !btcec.IsCompressedPubKey(pubKey) {
+		vm.isWitnessVersionActive(0) && !bchec.IsCompressedPubKey(pubKey) {
 
 		str := "only uncompressed keys are accepted post-segwit"
 		return scriptError(ErrWitnessPubKeyType, str)

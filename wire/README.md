@@ -1,15 +1,15 @@
 wire
 ====
 
-[![Build Status](http://img.shields.io/travis/btcsuite/btcd.svg)](https://travis-ci.org/btcsuite/btcd)
+[![Build Status](http://img.shields.io/travis/bchsuite/bchd.svg)](https://travis-ci.org/bchsuite/bchd)
 [![ISC License](http://img.shields.io/badge/license-ISC-blue.svg)](http://copyfree.org)
-[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](http://godoc.org/github.com/btcsuite/btcd/wire)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](http://godoc.org/github.com/bchsuite/bchd/wire)
 
 Package wire implements the bitcoin wire protocol.  A comprehensive suite of
 tests with 100% test coverage is provided to ensure proper functionality.
 
 There is an associated blog post about the release of this package
-[here](https://blog.conformal.com/btcwire-the-bitcoin-wire-protocol-package-from-btcd/).
+[here](https://blog.conformal.com/bchwire-the-bitcoin-wire-protocol-package-from-bchd/).
 
 This package has intentionally been designed so it can be used as a standalone
 package for any projects needing to interface with bitcoin peers at the wire
@@ -18,7 +18,7 @@ protocol level.
 ## Installation and Updating
 
 ```bash
-$ go get -u github.com/btcsuite/btcd/wire
+$ go get -u github.com/bchsuite/bchd/wire
 ```
 
 ## Bitcoin Message Overview
@@ -47,13 +47,13 @@ to a remote node running a bitcoin peer.  Example syntax is:
 	// Use the most recent protocol version supported by the package and the
 	// main bitcoin network.
 	pver := wire.ProtocolVersion
-	btcnet := wire.MainNet
+	bchnet := wire.MainNet
 
 	// Reads and validates the next bitcoin message from conn using the
-	// protocol version pver and the bitcoin network btcnet.  The returns
+	// protocol version pver and the bitcoin network bchnet.  The returns
 	// are a wire.Message, a []byte which contains the unmarshalled
 	// raw payload, and a possible error.
-	msg, rawPayload, err := wire.ReadMessage(conn, pver, btcnet)
+	msg, rawPayload, err := wire.ReadMessage(conn, pver, bchnet)
 	if err != nil {
 		// Log and handle the error
 	}
@@ -72,15 +72,15 @@ from a remote peer is:
 	// Use the most recent protocol version supported by the package and the
 	// main bitcoin network.
 	pver := wire.ProtocolVersion
-	btcnet := wire.MainNet
+	bchnet := wire.MainNet
 
 	// Create a new getaddr bitcoin message.
 	msg := wire.NewMsgGetAddr()
 
 	// Writes a bitcoin message msg to conn using the protocol version
-	// pver, and the bitcoin network btcnet.  The return is a possible
+	// pver, and the bitcoin network bchnet.  The return is a possible
 	// error.
-	err := wire.WriteMessage(conn, msg, pver, btcnet)
+	err := wire.WriteMessage(conn, msg, pver, bchnet)
 	if err != nil {
 		// Log and handle the error
 	}
@@ -89,7 +89,7 @@ from a remote peer is:
 ## GPG Verification Key
 
 All official release tags are signed by Conformal so users can ensure the code
-has not been tampered with and is coming from the btcsuite developers.  To
+has not been tampered with and is coming from the bchsuite developers.  To
 verify the signature perform the following:
 
 - Download the public key from the Conformal website at

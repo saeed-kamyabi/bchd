@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016 The btcsuite developers
+// Copyright (c) 2014-2016 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/bchsuite/bchd/chaincfg/chainhash"
 )
 
 // RejectCode represents a numeric value by which a remote peer indicates
@@ -71,13 +71,13 @@ type MsgReject struct {
 	Hash chainhash.Hash
 }
 
-// BtcDecode decodes r using the bitcoin protocol encoding into the receiver.
+// BchDecode decodes r using the bitcoin protocol encoding into the receiver.
 // This is part of the Message interface implementation.
-func (msg *MsgReject) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgReject) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
 	if pver < RejectVersion {
 		str := fmt.Sprintf("reject message invalid for protocol "+
 			"version %d", pver)
-		return messageError("MsgReject.BtcDecode", str)
+		return messageError("MsgReject.BchDecode", str)
 	}
 
 	// Command that was rejected.
@@ -113,13 +113,13 @@ func (msg *MsgReject) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) e
 	return nil
 }
 
-// BtcEncode encodes the receiver to w using the bitcoin protocol encoding.
+// BchEncode encodes the receiver to w using the bitcoin protocol encoding.
 // This is part of the Message interface implementation.
-func (msg *MsgReject) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgReject) BchEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
 	if pver < RejectVersion {
 		str := fmt.Sprintf("reject message invalid for protocol "+
 			"version %d", pver)
-		return messageError("MsgReject.BtcEncode", str)
+		return messageError("MsgReject.BchEncode", str)
 	}
 
 	// Command that was rejected.

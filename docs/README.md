@@ -6,7 +6,7 @@
         2. [Linux/BSD/MacOSX/POSIX](#PosixInstallation)
           1. [Gentoo Linux](#GentooInstallation)
     2. [Configuration](#Configuration)
-    3. [Controlling and Querying btcd via btcctl](#BtcctlConfig)
+    3. [Controlling and Querying bchd via bchctl](#BchctlConfig)
     4. [Mining](#Mining)
 3. [Help](#Help)
     1. [Startup](#Startup)
@@ -19,13 +19,13 @@
 5. [Developer Resources](#DeveloperResources)
     1. [Code Contribution Guidelines](#ContributionGuidelines)
     2. [JSON-RPC Reference](#JSONRPCReference)
-    3. [The btcsuite Bitcoin-related Go Packages](#GoPackages)
+    3. [The bchsuite Bitcoin-related Go Packages](#GoPackages)
 
 <a name="About" />
 
 ### 1. About
 
-btcd is a full node bitcoin implementation written in [Go](http://golang.org),
+bchd is a full node bitcoin implementation written in [Go](http://golang.org),
 licensed under the [copyfree](http://www.copyfree.org) ISC License.
 
 This project is currently under active development and is in a Beta state.  It
@@ -33,7 +33,7 @@ is extremely stable and has been in production use since October 2013.
 
 It properly downloads, validates, and serves the block chain using the exact
 rules (including consensus bugs) for block acceptance as Bitcoin Core.  We have
-taken great care to avoid btcd causing a fork to the block chain.  It includes a
+taken great care to avoid bchd causing a fork to the block chain.  It includes a
 full block validation testing framework which contains all of the 'official'
 block acceptance tests (and some additional ones) that is run on every pull
 request to help ensure it properly follows consensus.  Also, it passes all of
@@ -45,13 +45,13 @@ ensures all individual transactions admitted to the pool follow the rules
 required by the block chain and also includes more strict checks which filter
 transactions based on miner requirements ("standard" transactions).
 
-One key difference between btcd and Bitcoin Core is that btcd does *NOT* include
+One key difference between bchd and Bitcoin Core is that bchd does *NOT* include
 wallet functionality and this was a very intentional design decision.  See the
-blog entry [here](https://blog.conformal.com/btcd-not-your-moms-bitcoin-daemon)
+blog entry [here](https://blog.conformal.com/bchd-not-your-moms-bitcoin-daemon)
 for more details.  This means you can't actually make or receive payments
-directly with btcd.  That functionality is provided by the
-[btcwallet](https://github.com/btcsuite/btcwallet) and
-[Paymetheus](https://github.com/btcsuite/Paymetheus) (Windows-only) projects
+directly with bchd.  That functionality is provided by the
+[bchwallet](https://github.com/bchsuite/bchwallet) and
+[Paymetheus](https://github.com/bchsuite/Paymetheus) (Windows-only) projects
 which are both under active development.
 
 <a name="GettingStarted" />
@@ -62,15 +62,15 @@ which are both under active development.
 
 **2.1 Installation**
 
-The first step is to install btcd.  See one of the following sections for
+The first step is to install bchd.  See one of the following sections for
 details on how to install on the supported operating systems.
 
 <a name="WindowsInstallation" />
 
 **2.1.1 Windows Installation**<br />
 
-* Install the MSI available at: https://github.com/btcsuite/btcd/releases
-* Launch btcd from the Start Menu
+* Install the MSI available at: https://github.com/bchsuite/bchd/releases
+* Launch bchd from the Start Menu
 
 <a name="PosixInstallation" />
 
@@ -92,26 +92,26 @@ recommended that `GOPATH` is set to a directory in your home directory such as
 `~/goprojects` to avoid write permission issues.  It is also recommended to add
 `$GOPATH/bin` to your `PATH` at this point.
 
-- Run the following commands to obtain btcd, all dependencies, and install it:
+- Run the following commands to obtain bchd, all dependencies, and install it:
 
 ```bash
 $ go get -u github.com/Masterminds/glide
-$ git clone https://github.com/btcsuite/btcd $GOPATH/src/github.com/btcsuite/btcd
-$ cd $GOPATH/src/github.com/btcsuite/btcd
+$ git clone https://github.com/bchsuite/bchd $GOPATH/src/github.com/bchsuite/bchd
+$ cd $GOPATH/src/github.com/bchsuite/bchd
 $ glide install
 $ go install . ./cmd/...
 ```
 
-- btcd (and utilities) will now be installed in ```$GOPATH/bin```.  If you did
+- bchd (and utilities) will now be installed in ```$GOPATH/bin```.  If you did
   not already add the bin directory to your system path during Go installation,
   we recommend you do so now.
 
 **Updating**
 
-- Run the following commands to update btcd, all dependencies, and install it:
+- Run the following commands to update bchd, all dependencies, and install it:
 
 ```bash
-$ cd $GOPATH/src/github.com/btcsuite/btcd
+$ cd $GOPATH/src/github.com/bchsuite/bchd
 $ git pull && glide install
 $ go install . ./cmd/...
 ```
@@ -122,26 +122,26 @@ $ go install . ./cmd/...
 
 * Install Layman and enable the Bitcoin overlay.
   * https://gitlab.com/bitcoin/gentoo
-* Copy or symlink `/var/lib/layman/bitcoin/Documentation/package.keywords/btcd-live` to `/etc/portage/package.keywords/`
-* Install btcd: `$ emerge net-p2p/btcd`
+* Copy or symlink `/var/lib/layman/bitcoin/Documentation/package.keywords/bchd-live` to `/etc/portage/package.keywords/`
+* Install bchd: `$ emerge net-p2p/bchd`
 
 <a name="Configuration" />
 
 **2.2 Configuration**
 
-btcd has a number of [configuration](http://godoc.org/github.com/btcsuite/btcd)
-options, which can be viewed by running: `$ btcd --help`.
+bchd has a number of [configuration](http://godoc.org/github.com/bchsuite/bchd)
+options, which can be viewed by running: `$ bchd --help`.
 
-<a name="BtcctlConfig" />
+<a name="BchctlConfig" />
 
-**2.3 Controlling and Querying btcd via btcctl**
+**2.3 Controlling and Querying bchd via bchctl**
 
-btcctl is a command line utility that can be used to both control and query btcd
-via [RPC](http://www.wikipedia.org/wiki/Remote_procedure_call).  btcd does
+bchctl is a command line utility that can be used to both control and query bchd
+via [RPC](http://www.wikipedia.org/wiki/Remote_procedure_call).  bchd does
 **not** enable its RPC server by default;  You must configure at minimum both an
 RPC username and password or both an RPC limited username and password:
 
-* btcd.conf configuration file
+* bchd.conf configuration file
 ```
 [Application Options]
 rpcuser=myuser
@@ -149,7 +149,7 @@ rpcpass=SomeDecentp4ssw0rd
 rpclimituser=mylimituser
 rpclimitpass=Limitedp4ssw0rd
 ```
-* btcctl.conf configuration file
+* bchctl.conf configuration file
 ```
 [Application Options]
 rpcuser=myuser
@@ -161,13 +161,13 @@ OR
 rpclimituser=mylimituser
 rpclimitpass=Limitedp4ssw0rd
 ```
-For a list of available options, run: `$ btcctl --help`
+For a list of available options, run: `$ bchctl --help`
 
 <a name="Mining" />
 
 **2.4 Mining**
 
-btcd supports the `getblocktemplate` RPC.
+bchd supports the `getblocktemplate` RPC.
 The limited user cannot access this RPC.
 
 
@@ -181,16 +181,16 @@ miningaddr=12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX
 miningaddr=1M83ju3EChKYyysmM2FXtLNftbacagd8FR
 ```
 
-**2. Add btcd's RPC TLS certificate to system Certificate Authority list.**
+**2. Add bchd's RPC TLS certificate to system Certificate Authority list.**
 
 `cgminer` uses [curl](http://curl.haxx.se/) to fetch data from the RPC server.
-Since curl validates the certificate by default, we must install the `btcd` RPC
+Since curl validates the certificate by default, we must install the `bchd` RPC
 certificate into the default system Certificate Authority list.
 
 **Ubuntu**
 
-1. Copy rpc.cert to /usr/share/ca-certificates: `# cp /home/user/.btcd/rpc.cert /usr/share/ca-certificates/btcd.crt`
-2. Add btcd.crt to /etc/ca-certificates.conf: `# echo btcd.crt >> /etc/ca-certificates.conf`
+1. Copy rpc.cert to /usr/share/ca-certificates: `# cp /home/user/.bchd/rpc.cert /usr/share/ca-certificates/bchd.crt`
+2. Add bchd.crt to /etc/ca-certificates.conf: `# echo bchd.crt >> /etc/ca-certificates.conf`
 3. Update the CA certificate list: `# update-ca-certificates`
 
 **3. Set your mining software url to use https.**
@@ -205,7 +205,7 @@ certificate into the default system Certificate Authority list.
 
 **3.1 Startup**
 
-Typically btcd will run and start downloading the block chain with no extra
+Typically bchd will run and start downloading the block chain with no extra
 configuration necessary, however, there is an optional method to use a
 `bootstrap.dat` file that may speed up the initial block chain download process.
 
@@ -213,23 +213,23 @@ configuration necessary, however, there is an optional method to use a
 
 **3.1.1 bootstrap.dat**
 
-* [Using bootstrap.dat](https://github.com/btcsuite/btcd/tree/master/docs/using_bootstrap_dat.md)
+* [Using bootstrap.dat](https://github.com/bchsuite/bchd/tree/master/docs/using_bootstrap_dat.md)
 
 <a name="NetworkConfig" />
 
 **3.1.2 Network Configuration**
 
-* [What Ports Are Used by Default?](https://github.com/btcsuite/btcd/tree/master/docs/default_ports.md)
-* [How To Listen on Specific Interfaces](https://github.com/btcsuite/btcd/tree/master/docs/configure_peer_server_listen_interfaces.md)
-* [How To Configure RPC Server to Listen on Specific Interfaces](https://github.com/btcsuite/btcd/tree/master/docs/configure_rpc_server_listen_interfaces.md)
-* [Configuring btcd with Tor](https://github.com/btcsuite/btcd/tree/master/docs/configuring_tor.md)
+* [What Ports Are Used by Default?](https://github.com/bchsuite/bchd/tree/master/docs/default_ports.md)
+* [How To Listen on Specific Interfaces](https://github.com/bchsuite/bchd/tree/master/docs/configure_peer_server_listen_interfaces.md)
+* [How To Configure RPC Server to Listen on Specific Interfaces](https://github.com/bchsuite/bchd/tree/master/docs/configure_rpc_server_listen_interfaces.md)
+* [Configuring bchd with Tor](https://github.com/bchsuite/bchd/tree/master/docs/configuring_tor.md)
 
 <a name="Wallet" />
 
 **3.1 Wallet**
 
-btcd was intentionally developed without an integrated wallet for security
-reasons.  Please see [btcwallet](https://github.com/btcsuite/btcwallet) for more
+bchd was intentionally developed without an integrated wallet for security
+reasons.  Please see [bchwallet](https://github.com/bchsuite/bchwallet) for more
 information.
 
 
@@ -241,15 +241,15 @@ information.
 
 **4.1 IRC**
 
-* [irc.freenode.net](irc://irc.freenode.net), channel `#btcd`
+* [irc.freenode.net](irc://irc.freenode.net), channel `#bchd`
 
 <a name="MailingLists" />
 
 **4.2 Mailing Lists**
 
-* <a href="mailto:btcd+subscribe@opensource.conformal.com">btcd</a>: discussion
-  of btcd and its packages.
-* <a href="mailto:btcd-commits+subscribe@opensource.conformal.com">btcd-commits</a>:
+* <a href="mailto:bchd+subscribe@opensource.conformal.com">bchd</a>: discussion
+  of bchd and its packages.
+* <a href="mailto:bchd-commits+subscribe@opensource.conformal.com">bchd-commits</a>:
   readonly mail-out of source code changes.
 
 <a name="DeveloperResources" />
@@ -258,42 +258,42 @@ information.
 
 <a name="ContributionGuidelines" />
 
-* [Code Contribution Guidelines](https://github.com/btcsuite/btcd/tree/master/docs/code_contribution_guidelines.md)
+* [Code Contribution Guidelines](https://github.com/bchsuite/bchd/tree/master/docs/code_contribution_guidelines.md)
 
 <a name="JSONRPCReference" />
 
-* [JSON-RPC Reference](https://github.com/btcsuite/btcd/tree/master/docs/json_rpc_api.md)
-    * [RPC Examples](https://github.com/btcsuite/btcd/tree/master/docs/json_rpc_api.md#ExampleCode)
+* [JSON-RPC Reference](https://github.com/bchsuite/bchd/tree/master/docs/json_rpc_api.md)
+    * [RPC Examples](https://github.com/bchsuite/bchd/tree/master/docs/json_rpc_api.md#ExampleCode)
 
 <a name="GoPackages" />
 
-* The btcsuite Bitcoin-related Go Packages:
-    * [btcrpcclient](https://github.com/btcsuite/btcrpcclient) - Implements a
+* The bchsuite Bitcoin-related Go Packages:
+    * [bchrpcclient](https://github.com/bchsuite/bchrpcclient) - Implements a
       robust and easy to use Websocket-enabled Bitcoin JSON-RPC client
-    * [btcjson](https://github.com/btcsuite/btcjson) - Provides an extensive API
+    * [bchjson](https://github.com/bchsuite/bchjson) - Provides an extensive API
       for the underlying JSON-RPC command and return values
-    * [wire](https://github.com/btcsuite/btcd/tree/master/wire) - Implements the
+    * [wire](https://github.com/bchsuite/bchd/tree/master/wire) - Implements the
       Bitcoin wire protocol
-    * [peer](https://github.com/btcsuite/btcd/tree/master/peer) -
+    * [peer](https://github.com/bchsuite/bchd/tree/master/peer) -
       Provides a common base for creating and managing Bitcoin network peers.
-    * [blockchain](https://github.com/btcsuite/btcd/tree/master/blockchain) -
+    * [blockchain](https://github.com/bchsuite/bchd/tree/master/blockchain) -
       Implements Bitcoin block handling and chain selection rules
-    * [blockchain/fullblocktests](https://github.com/btcsuite/btcd/tree/master/blockchain/fullblocktests) -
+    * [blockchain/fullblocktests](https://github.com/bchsuite/bchd/tree/master/blockchain/fullblocktests) -
       Provides a set of block tests for testing the consensus validation rules
-    * [txscript](https://github.com/btcsuite/btcd/tree/master/txscript) -
+    * [txscript](https://github.com/bchsuite/bchd/tree/master/txscript) -
       Implements the Bitcoin transaction scripting language
-    * [btcec](https://github.com/btcsuite/btcd/tree/master/btcec) - Implements
+    * [bchec](https://github.com/bchsuite/bchd/tree/master/bchec) - Implements
       support for the elliptic curve cryptographic functions needed for the
       Bitcoin scripts
-    * [database](https://github.com/btcsuite/btcd/tree/master/database) -
+    * [database](https://github.com/bchsuite/bchd/tree/master/database) -
       Provides a database interface for the Bitcoin block chain
-    * [mempool](https://github.com/btcsuite/btcd/tree/master/mempool) -
+    * [mempool](https://github.com/bchsuite/bchd/tree/master/mempool) -
       Package mempool provides a policy-enforced pool of unmined bitcoin
       transactions.
-    * [btcutil](https://github.com/btcsuite/btcutil) - Provides Bitcoin-specific
+    * [bchutil](https://github.com/bchsuite/bchutil) - Provides Bitcoin-specific
       convenience functions and types
-    * [chainhash](https://github.com/btcsuite/btcd/tree/master/chaincfg/chainhash) -
+    * [chainhash](https://github.com/bchsuite/bchd/tree/master/chaincfg/chainhash) -
       Provides a generic hash type and associated functions that allows the
       specific hash algorithm to be abstracted.
-    * [connmgr](https://github.com/btcsuite/btcd/tree/master/connmgr) -
+    * [connmgr](https://github.com/bchsuite/bchd/tree/master/connmgr) -
       Package connmgr implements a generic Bitcoin network connection manager.
