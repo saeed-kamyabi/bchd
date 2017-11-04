@@ -19,13 +19,13 @@ import (
 	"github.com/bchsuite/bchd/database/internal/treap"
 	"github.com/bchsuite/bchd/wire"
 	"github.com/bchsuite/bchutil"
-	"github.com/bchsuite/goleveldb/leveldb"
-	"github.com/bchsuite/goleveldb/leveldb/comparer"
-	ldberrors "github.com/bchsuite/goleveldb/leveldb/errors"
-	"github.com/bchsuite/goleveldb/leveldb/filter"
-	"github.com/bchsuite/goleveldb/leveldb/iterator"
-	"github.com/bchsuite/goleveldb/leveldb/opt"
-	"github.com/bchsuite/goleveldb/leveldb/util"
+	"github.com/btcsuite/goleveldb/leveldb"
+	"github.com/btcsuite/goleveldb/leveldb/comparer"
+	ldberrors "github.com/btcsuite/goleveldb/leveldb/errors"
+	"github.com/btcsuite/goleveldb/leveldb/filter"
+	"github.com/btcsuite/goleveldb/leveldb/iterator"
+	"github.com/btcsuite/goleveldb/leveldb/opt"
+	"github.com/btcsuite/goleveldb/leveldb/util"
 )
 
 const (

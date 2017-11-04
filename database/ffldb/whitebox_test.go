@@ -21,8 +21,8 @@ import (
 	"github.com/bchsuite/bchd/database"
 	"github.com/bchsuite/bchd/wire"
 	"github.com/bchsuite/bchutil"
-	"github.com/bchsuite/goleveldb/leveldb"
-	ldberrors "github.com/bchsuite/goleveldb/leveldb/errors"
+	"github.com/btcsuite/goleveldb/leveldb"
+	ldberrors "github.com/btcsuite/goleveldb/leveldb/errors"
 )
 
 var (
