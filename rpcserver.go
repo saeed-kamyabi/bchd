@@ -1725,7 +1725,7 @@ func (state *gbtWorkState) blockTemplateResult(useCoinbaseValue bool, submitOld 
 			Hash:    tx.TxHash().String(),
 			Depends: []int64{},
 			Fee:     template.Fees[0],
-			SigOps:  template.SigOpCosts[0],
+                        SigOps:  template.SigOpCounts[0],
 		}
 
 		reply.CoinbaseTxn = &resultTx
@@ -1932,8 +1932,6 @@ func chainErrToGBTErrString(err error) string {
 		return "duplicate"
 	case blockchain.ErrBlockTooBig:
 		return "bad-blk-length"
-	case blockchain.ErrBlockWeightTooHigh:
-		return "bad-blk-weight"
 	case blockchain.ErrBlockVersionTooOld:
 		return "bad-version"
 	case blockchain.ErrInvalidTime:

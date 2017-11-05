@@ -20,13 +20,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bchsuite/bchd/blockchain"
 	"github.com/bchsuite/bchd/chaincfg"
 	"github.com/bchsuite/bchd/chaincfg/chainhash"
 	"github.com/bchsuite/bchd/connmgr"
 	"github.com/bchsuite/bchd/database"
 	_ "github.com/bchsuite/bchd/database/ffldb"
 	"github.com/bchsuite/bchd/mempool"
+        "github.com/btcsuite/btcd/wire"
 	"github.com/bchsuite/bchutil"
 	"github.com/btcsuite/go-socks/socks"
 	flags "github.com/jessevdk/go-flags"
@@ -50,7 +50,7 @@ const (
 	defaultBlockMinSize          = 0
 	defaultBlockMaxSize          = 750000
 	blockMaxSizeMin              = 1000
-	blockMaxSizeMax              = blockchain.MaxBlockBaseSize - 1000
+	blockMaxSizeMax              = wire.MaxBlockPayload - 1000
 	defaultGenerate              = false
 	defaultMaxOrphanTransactions = 100
 	defaultMaxOrphanTxSize       = mempool.MaxStandardTxSize
@@ -775,7 +775,6 @@ func loadConfig() (*config, []string, error) {
 	cfg.BlockPrioritySize = minUint32(cfg.BlockPrioritySize, cfg.BlockMaxSize)
 	cfg.BlockMinSize = minUint32(cfg.BlockMinSize, cfg.BlockMaxSize)
 
-	switch {
 	// Look for illegal characters in the user agent comments.
 	for _, uaComment := range cfg.UserAgentComments {
 		if strings.ContainsAny(uaComment, "/:()") {

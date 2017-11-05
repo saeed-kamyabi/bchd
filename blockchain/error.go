@@ -95,6 +95,10 @@ const (
 	// transaction.
 	ErrNoTransactions
 
+	// ErrTooManyTransactions indicates the block has more transactions than
+	// are allowed.
+	ErrTooManyTransactions
+
 	// ErrNoTxInputs indicates a transaction does not have any inputs.  A
 	// valid transaction must have at least one input.
 	ErrNoTxInputs
