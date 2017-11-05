@@ -69,7 +69,6 @@ var helpDescsEnUS = map[string]string{
 	"vinprevout-txid":        "The hash of the origin transaction (non-coinbase txns only)",
 	"vinprevout-vout":        "The index of the output being redeemed from the origin transaction (non-coinbase txns only)",
 	"vinprevout-scriptSig":   "The signature script used to redeem the origin transaction as a JSON object (non-coinbase txns only)",
-	"vinprevout-txinwitness": "The witness stack of the passed input, encoded as a JSON string array",
 	"vinprevout-prevOut":     "Data from the origin transaction output with index vout.",
 	"vinprevout-sequence":    "The script sequence number",
 
@@ -78,7 +77,6 @@ var helpDescsEnUS = map[string]string{
 	"vin-txid":        "The hash of the origin transaction (non-coinbase txns only)",
 	"vin-vout":        "The index of the output being redeemed from the origin transaction (non-coinbase txns only)",
 	"vin-scriptSig":   "The signature script used to redeem the origin transaction as a JSON object (non-coinbase txns only)",
-	"vin-txinwitness": "The witness used to redeem the input encoded as a string array of its items",
 	"vin-sequence":    "The script sequence number",
 
 	// ScriptPubKeyResult help.
@@ -196,14 +194,10 @@ var helpDescsEnUS = map[string]string{
 	"txrawresult-confirmations": "Number of confirmations of the block",
 	"txrawresult-time":          "Transaction time in seconds since 1 Jan 1970 GMT",
 	"txrawresult-blocktime":     "Block time in seconds since the 1 Jan 1970 GMT",
-	"txrawresult-size":          "The size of the transation in bytes",
-	"txrawresult-vsize":         "The virtual size of the transaction in bytes",
-	"txrawresult-hash":          "The wtxid of the transaction",
 
 	// SearchRawTransactionsResult help.
 	"searchrawtransactionsresult-hex":           "Hex-encoded transaction",
 	"searchrawtransactionsresult-txid":          "The hash of the transaction",
-	"searchrawtransactionsresult-hash":          "The wxtid of the transaction",
 	"searchrawtransactionsresult-version":       "The transaction version",
 	"searchrawtransactionsresult-locktime":      "The transaction lock time",
 	"searchrawtransactionsresult-vin":           "The transaction inputs as JSON objects",
@@ -212,8 +206,6 @@ var helpDescsEnUS = map[string]string{
 	"searchrawtransactionsresult-confirmations": "Number of confirmations of the block",
 	"searchrawtransactionsresult-time":          "Transaction time in seconds since 1 Jan 1970 GMT",
 	"searchrawtransactionsresult-blocktime":     "Block time in seconds since the 1 Jan 1970 GMT",
-	"searchrawtransactionsresult-size":          "The size of the transaction in bytes",
-	"searchrawtransactionsresult-vsize":         "The virtual size of the transaction in bytes",
 
 	// GetBlockVerboseResult help.
 	"getblockverboseresult-hash":              "The hash of the block (same as provided)",
@@ -231,8 +223,6 @@ var helpDescsEnUS = map[string]string{
 	"getblockverboseresult-difficulty":        "The proof-of-work difficulty as a multiple of the minimum difficulty",
 	"getblockverboseresult-previousblockhash": "The hash of the previous block",
 	"getblockverboseresult-nextblockhash":     "The hash of the next block (only if there is one)",
-	"getblockverboseresult-strippedsize":      "The size of the block without witness data",
-	"getblockverboseresult-weight":            "The weight of the block",
 
 	// GetBlockCountCmd help.
 	"getblockcount--synopsis": "Returns the number of blocks in the longest block chain.",
@@ -282,7 +272,6 @@ var helpDescsEnUS = map[string]string{
 	"getblocktemplateresulttx-depends": "Other transactions before this one (by 1-based index in the 'transactions'  list) that must be present in the final block if this one is",
 	"getblocktemplateresulttx-fee":     "Difference in value between transaction inputs and outputs (in Satoshi)",
 	"getblocktemplateresulttx-sigops":  "Total number of signature operations as counted for purposes of block limits",
-	"getblocktemplateresulttx-weight":  "The weight of the transaction",
 
 	// GetBlockTemplateResultAux help.
 	"getblocktemplateresultaux-flags": "Hex-encoded byte-for-byte data to include in the coinbase signature script",
@@ -311,8 +300,6 @@ var helpDescsEnUS = map[string]string{
 	"getblocktemplateresult-noncerange":                 "Two concatenated hex-encoded big-endian 32-bit integers which represent the valid ranges of nonces the miner may scan",
 	"getblocktemplateresult-capabilities":               "List of server capabilities including 'proposal' to indicate support for block proposals",
 	"getblocktemplateresult-reject-reason":              "Reason the proposal was invalid as-is (only applies to proposal responses)",
-	"getblocktemplateresult-default_witness_commitment": "The witness commitment itself. Will be populated if the block has witness data",
-	"getblocktemplateresult-weightlimit":                "The current limit on the max allowed weight of a block",
 
 	// GetBlockTemplateCmd help.
 	"getblocktemplate--synopsis": "Returns a JSON object with information necessary to construct a block to mine or accepts a proposal to validate.\n" +
@@ -392,7 +379,6 @@ var helpDescsEnUS = map[string]string{
 	// GetMiningInfoResult help.
 	"getmininginforesult-blocks":             "Height of the latest best block",
 	"getmininginforesult-currentblocksize":   "Size of the latest best block",
-	"getmininginforesult-currentblockweight": "Weight of the latest best block",
 	"getmininginforesult-currentblocktx":     "Number of transactions in the latest best block",
 	"getmininginforesult-difficulty":         "Current target difficulty",
 	"getmininginforesult-errors":             "Any current errors",
@@ -454,7 +440,6 @@ var helpDescsEnUS = map[string]string{
 	"getrawmempoolverboseresult-startingpriority": "Priority when transaction entered the pool",
 	"getrawmempoolverboseresult-currentpriority":  "Current priority",
 	"getrawmempoolverboseresult-depends":          "Unconfirmed transactions used as inputs for this transaction",
-	"getrawmempoolverboseresult-vsize":            "The virtual size of a transaction",
 
 	// GetRawMempoolCmd help.
 	"getrawmempool--synopsis":   "Returns information about all of the transactions currently in the memory pool.",
