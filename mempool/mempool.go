@@ -797,7 +797,7 @@ func (mp *TxPool) maybeAcceptTransaction(tx *bchutil.Tx, isNew, rateLimit, rejec
 	// which is more desirable.  Therefore, as long as the size of the
 	// transaction does not exceeed 1000 less than the reserved space for
 	// high-priority transactions, don't require a fee for it.
-	serializedSize := GetTxVirtualSize(tx)
+        serializedSize := int64(tx.MsgTx().SerializeSize())
 	minFee := calcMinRequiredTxRelayFee(serializedSize,
 		mp.cfg.Policy.MinRelayTxFee)
 	if serializedSize >= (DefaultBlockPrioritySize-1000) && txFee < minFee {
@@ -1142,7 +1142,6 @@ func (mp *TxPool) RawMempoolVerbose() map[string]*bchjson.GetRawMempoolVerboseRe
 
 		mpd := &bchjson.GetRawMempoolVerboseResult{
 			Size:             int32(tx.MsgTx().SerializeSize()),
-			Vsize:            int32(GetTxVirtualSize(tx)),
 			Fee:              bchutil.Amount(desc.Fee).ToBCH(),
 			Time:             desc.Added.Unix(),
 			Height:           int64(desc.Height),
