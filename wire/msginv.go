@@ -45,7 +45,7 @@ func (msg *MsgInv) AddInvVect(iv *InvVect) error {
 
 // BchDecode decodes r using the bitcoin protocol encoding into the receiver.
 // This is part of the Message interface implementation.
-func (msg *MsgInv) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgInv) BchDecode(r io.Reader, pver uint32) error {
 	count, err := ReadVarInt(r, pver)
 	if err != nil {
 		return err
@@ -75,7 +75,7 @@ func (msg *MsgInv) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) erro
 
 // BchEncode encodes the receiver to w using the bitcoin protocol encoding.
 // This is part of the Message interface implementation.
-func (msg *MsgInv) BchEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgInv) BchEncode(w io.Writer, pver uint32) error {
 	// Limit to max inventory vectors per message.
 	count := len(msg.InvList)
 	if count > MaxInvPerMsg {

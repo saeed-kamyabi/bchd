@@ -51,7 +51,7 @@ type MsgFilterLoad struct {
 
 // BchDecode decodes r using the bitcoin protocol encoding into the receiver.
 // This is part of the Message interface implementation.
-func (msg *MsgFilterLoad) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgFilterLoad) BchDecode(r io.Reader, pver uint32) error {
 	if pver < BIP0037Version {
 		str := fmt.Sprintf("filterload message invalid for protocol "+
 			"version %d", pver)
@@ -81,7 +81,7 @@ func (msg *MsgFilterLoad) BchDecode(r io.Reader, pver uint32, enc MessageEncodin
 
 // BchEncode encodes the receiver to w using the bitcoin protocol encoding.
 // This is part of the Message interface implementation.
-func (msg *MsgFilterLoad) BchEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgFilterLoad) BchEncode(w io.Writer, pver uint32) error {
 	if pver < BIP0037Version {
 		str := fmt.Sprintf("filterload message invalid for protocol "+
 			"version %d", pver)

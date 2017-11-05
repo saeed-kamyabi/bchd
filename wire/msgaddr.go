@@ -57,7 +57,7 @@ func (msg *MsgAddr) ClearAddresses() {
 
 // BchDecode decodes r using the bitcoin protocol encoding into the receiver.
 // This is part of the Message interface implementation.
-func (msg *MsgAddr) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgAddr) BchDecode(r io.Reader, pver uint32) error {
 	count, err := ReadVarInt(r, pver)
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func (msg *MsgAddr) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) err
 
 // BchEncode encodes the receiver to w using the bitcoin protocol encoding.
 // This is part of the Message interface implementation.
-func (msg *MsgAddr) BchEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgAddr) BchEncode(w io.Writer, pver uint32) error {
 	// Protocol versions before MultipleAddressVersion only allowed 1 address
 	// per message.
 	count := len(msg.AddrList)

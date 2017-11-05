@@ -18,7 +18,7 @@ type MsgFilterClear struct{}
 
 // BchDecode decodes r using the bitcoin protocol encoding into the receiver.
 // This is part of the Message interface implementation.
-func (msg *MsgFilterClear) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgFilterClear) BchDecode(r io.Reader, pver uint32) error {
 	if pver < BIP0037Version {
 		str := fmt.Sprintf("filterclear message invalid for protocol "+
 			"version %d", pver)
@@ -30,7 +30,7 @@ func (msg *MsgFilterClear) BchDecode(r io.Reader, pver uint32, enc MessageEncodi
 
 // BchEncode encodes the receiver to w using the bitcoin protocol encoding.
 // This is part of the Message interface implementation.
-func (msg *MsgFilterClear) BchEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgFilterClear) BchEncode(w io.Writer, pver uint32) error {
 	if pver < BIP0037Version {
 		str := fmt.Sprintf("filterclear message invalid for protocol "+
 			"version %d", pver)

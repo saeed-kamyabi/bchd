@@ -14,7 +14,6 @@ import (
 // TestFilterAddLatest tests the MsgFilterAdd API against the latest protocol
 // version.
 func TestFilterAddLatest(t *testing.T) {
-	enc := BaseEncoding
 	pver := ProtocolVersion
 
 	data := []byte{0x01, 0x02}
@@ -38,14 +37,14 @@ func TestFilterAddLatest(t *testing.T) {
 
 	// Test encode with latest protocol version.
 	var buf bytes.Buffer
-	err := msg.BchEncode(&buf, pver, enc)
+	err := msg.BchEncode(&buf, pver)
 	if err != nil {
 		t.Errorf("encode of MsgFilterAdd failed %v err <%v>", msg, err)
 	}
 
 	// Test decode with latest protocol version.
 	var readmsg MsgFilterAdd
-	err = readmsg.BchDecode(&buf, pver, enc)
+	err = readmsg.BchDecode(&buf, pver)
 	if err != nil {
 		t.Errorf("decode of MsgFilterAdd failed [%v] err <%v>", buf, err)
 	}
@@ -62,14 +61,14 @@ func TestFilterAddCrossProtocol(t *testing.T) {
 
 	// Encode with latest protocol version.
 	var buf bytes.Buffer
-	err := msg.BchEncode(&buf, ProtocolVersion, LatestEncoding)
+	err := msg.BchEncode(&buf, ProtocolVersion)
 	if err != nil {
 		t.Errorf("encode of MsgFilterAdd failed %v err <%v>", msg, err)
 	}
 
 	// Decode with old protocol version.
 	var readmsg MsgFilterAdd
-	err = readmsg.BchDecode(&buf, BIP0031Version, LatestEncoding)
+	err = readmsg.BchDecode(&buf, BIP0031Version)
 	if err == nil {
 		t.Errorf("decode of MsgFilterAdd succeeded when it shouldn't "+
 			"have %v", msg)
@@ -90,7 +89,7 @@ func TestFilterAddMaxDataSize(t *testing.T) {
 
 	// Encode with latest protocol version.
 	var buf bytes.Buffer
-	err := msg.BchEncode(&buf, ProtocolVersion, LatestEncoding)
+	err := msg.BchEncode(&buf, ProtocolVersion)
 	if err == nil {
 		t.Errorf("encode of MsgFilterAdd succeeded when it shouldn't "+
 			"have %v", msg)
@@ -98,7 +97,7 @@ func TestFilterAddMaxDataSize(t *testing.T) {
 
 	// Decode with latest protocol version.
 	readbuf := bytes.NewReader(data)
-	err = msg.BchDecode(readbuf, ProtocolVersion, LatestEncoding)
+	err = msg.BchDecode(readbuf, ProtocolVersion)
 	if err == nil {
 		t.Errorf("decode of MsgFilterAdd succeeded when it shouldn't "+
 			"have %v", msg)
@@ -120,7 +119,6 @@ func TestFilterAddWireErrors(t *testing.T) {
 		in       *MsgFilterAdd   // Value to encode
 		buf      []byte          // Wire encoding
 		pver     uint32          // Protocol version for wire encoding
-		enc      MessageEncoding // Message encoding format
 		max      int             // Max size of fixed buffer to induce errors
 		writeErr error           // Expected write error
 		readErr  error           // Expected read error
@@ -128,17 +126,17 @@ func TestFilterAddWireErrors(t *testing.T) {
 		// Latest protocol version with intentional read/write errors.
 		// Force error in data size.
 		{
-			baseFilterAdd, baseFilterAddEncoded, pver, BaseEncoding, 0,
+			baseFilterAdd, baseFilterAddEncoded, pver, 0,
 			io.ErrShortWrite, io.EOF,
 		},
 		// Force error in data.
 		{
-			baseFilterAdd, baseFilterAddEncoded, pver, BaseEncoding, 1,
+			baseFilterAdd, baseFilterAddEncoded, pver, 1,
 			io.ErrShortWrite, io.EOF,
 		},
 		// Force error due to unsupported protocol version.
 		{
-			baseFilterAdd, baseFilterAddEncoded, pverNoFilterAdd, BaseEncoding, 5,
+			baseFilterAdd, baseFilterAddEncoded, pverNoFilterAdd, 5,
 			wireErr, wireErr,
 		},
 	}
@@ -147,7 +145,7 @@ func TestFilterAddWireErrors(t *testing.T) {
 	for i, test := range tests {
 		// Encode to wire format.
 		w := newFixedWriter(test.max)
-		err := test.in.BchEncode(w, test.pver, test.enc)
+		err := test.in.BchEncode(w, test.pver)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.writeErr) {
 			t.Errorf("BchEncode #%d wrong error got: %v, want: %v",
 				i, err, test.writeErr)
@@ -167,7 +165,7 @@ func TestFilterAddWireErrors(t *testing.T) {
 		// Decode from wire format.
 		var msg MsgFilterAdd
 		r := newFixedReader(test.max, test.buf)
-		err = msg.BchDecode(r, test.pver, test.enc)
+		err = msg.BchDecode(r, test.pver)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.readErr) {
 			t.Errorf("BchDecode #%d wrong error got: %v, want: %v",
 				i, err, test.readErr)

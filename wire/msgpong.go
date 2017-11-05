@@ -22,7 +22,7 @@ type MsgPong struct {
 
 // BchDecode decodes r using the bitcoin protocol encoding into the receiver.
 // This is part of the Message interface implementation.
-func (msg *MsgPong) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgPong) BchDecode(r io.Reader, pver uint32) error {
 	// NOTE: <= is not a mistake here.  The BIP0031 was defined as AFTER
 	// the version unlike most others.
 	if pver <= BIP0031Version {
@@ -36,7 +36,7 @@ func (msg *MsgPong) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) err
 
 // BchEncode encodes the receiver to w using the bitcoin protocol encoding.
 // This is part of the Message interface implementation.
-func (msg *MsgPong) BchEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgPong) BchEncode(w io.Writer, pver uint32) error {
 	// NOTE: <= is not a mistake here.  The BIP0031 was defined as AFTER
 	// the version unlike most others.
 	if pver <= BIP0031Version {

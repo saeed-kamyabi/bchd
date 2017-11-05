@@ -146,7 +146,6 @@ func TestGetBlocksWire(t *testing.T) {
 		out  *MsgGetBlocks   // Expected decoded message
 		buf  []byte          // Wire encoding
 		pver uint32          // Protocol version for wire encoding
-		enc  MessageEncoding // Message encoding format
 	}{
 		// Latest protocol version with no block locators.
 		{
@@ -154,7 +153,6 @@ func TestGetBlocksWire(t *testing.T) {
 			noLocators,
 			noLocatorsEncoded,
 			ProtocolVersion,
-			BaseEncoding,
 		},
 
 		// Latest protocol version with multiple block locators.
@@ -163,7 +161,6 @@ func TestGetBlocksWire(t *testing.T) {
 			multiLocators,
 			multiLocatorsEncoded,
 			ProtocolVersion,
-			BaseEncoding,
 		},
 
 		// Protocol version BIP0035Version with no block locators.
@@ -172,7 +169,6 @@ func TestGetBlocksWire(t *testing.T) {
 			noLocators,
 			noLocatorsEncoded,
 			BIP0035Version,
-			BaseEncoding,
 		},
 
 		// Protocol version BIP0035Version with multiple block locators.
@@ -181,7 +177,6 @@ func TestGetBlocksWire(t *testing.T) {
 			multiLocators,
 			multiLocatorsEncoded,
 			BIP0035Version,
-			BaseEncoding,
 		},
 
 		// Protocol version BIP0031Version with no block locators.
@@ -190,7 +185,6 @@ func TestGetBlocksWire(t *testing.T) {
 			noLocators,
 			noLocatorsEncoded,
 			BIP0031Version,
-			BaseEncoding,
 		},
 
 		// Protocol version BIP0031Versionwith multiple block locators.
@@ -199,7 +193,6 @@ func TestGetBlocksWire(t *testing.T) {
 			multiLocators,
 			multiLocatorsEncoded,
 			BIP0031Version,
-			BaseEncoding,
 		},
 
 		// Protocol version NetAddressTimeVersion with no block locators.
@@ -208,7 +201,6 @@ func TestGetBlocksWire(t *testing.T) {
 			noLocators,
 			noLocatorsEncoded,
 			NetAddressTimeVersion,
-			BaseEncoding,
 		},
 
 		// Protocol version NetAddressTimeVersion multiple block locators.
@@ -217,7 +209,6 @@ func TestGetBlocksWire(t *testing.T) {
 			multiLocators,
 			multiLocatorsEncoded,
 			NetAddressTimeVersion,
-			BaseEncoding,
 		},
 
 		// Protocol version MultipleAddressVersion with no block locators.
@@ -226,7 +217,6 @@ func TestGetBlocksWire(t *testing.T) {
 			noLocators,
 			noLocatorsEncoded,
 			MultipleAddressVersion,
-			BaseEncoding,
 		},
 
 		// Protocol version MultipleAddressVersion multiple block locators.
@@ -235,7 +225,6 @@ func TestGetBlocksWire(t *testing.T) {
 			multiLocators,
 			multiLocatorsEncoded,
 			MultipleAddressVersion,
-			BaseEncoding,
 		},
 	}
 
@@ -243,7 +232,7 @@ func TestGetBlocksWire(t *testing.T) {
 	for i, test := range tests {
 		// Encode the message to wire format.
 		var buf bytes.Buffer
-		err := test.in.BchEncode(&buf, test.pver, test.enc)
+		err := test.in.BchEncode(&buf, test.pver)
 		if err != nil {
 			t.Errorf("BchEncode #%d error %v", i, err)
 			continue
@@ -257,7 +246,7 @@ func TestGetBlocksWire(t *testing.T) {
 		// Decode the message from wire format.
 		var msg MsgGetBlocks
 		rbuf := bytes.NewReader(test.buf)
-		err = msg.BchDecode(rbuf, test.pver, test.enc)
+		err = msg.BchDecode(rbuf, test.pver)
 		if err != nil {
 			t.Errorf("BchDecode #%d error %v", i, err)
 			continue
@@ -345,22 +334,22 @@ func TestGetBlocksWireErrors(t *testing.T) {
 		readErr  error           // Expected read error
 	}{
 		// Force error in protocol version.
-		{baseGetBlocks, baseGetBlocksEncoded, pver, BaseEncoding, 0, io.ErrShortWrite, io.EOF},
+		{baseGetBlocks, baseGetBlocksEncoded, pver, 0, io.ErrShortWrite, io.EOF},
 		// Force error in block locator hash count.
-		{baseGetBlocks, baseGetBlocksEncoded, pver, BaseEncoding, 4, io.ErrShortWrite, io.EOF},
+		{baseGetBlocks, baseGetBlocksEncoded, pver, 4, io.ErrShortWrite, io.EOF},
 		// Force error in block locator hashes.
-		{baseGetBlocks, baseGetBlocksEncoded, pver, BaseEncoding, 5, io.ErrShortWrite, io.EOF},
+		{baseGetBlocks, baseGetBlocksEncoded, pver, 5, io.ErrShortWrite, io.EOF},
 		// Force error in stop hash.
-		{baseGetBlocks, baseGetBlocksEncoded, pver, BaseEncoding, 69, io.ErrShortWrite, io.EOF},
+		{baseGetBlocks, baseGetBlocksEncoded, pver, 69, io.ErrShortWrite, io.EOF},
 		// Force error with greater than max block locator hashes.
-		{maxGetBlocks, maxGetBlocksEncoded, pver, BaseEncoding, 7, wireErr, wireErr},
+		{maxGetBlocks, maxGetBlocksEncoded, pver, 7, wireErr, wireErr},
 	}
 
 	t.Logf("Running %d tests", len(tests))
 	for i, test := range tests {
 		// Encode to wire format.
 		w := newFixedWriter(test.max)
-		err := test.in.BchEncode(w, test.pver, test.enc)
+		err := test.in.BchEncode(w, test.pver)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.writeErr) {
 			t.Errorf("BchEncode #%d wrong error got: %v, want: %v",
 				i, err, test.writeErr)
@@ -380,7 +369,7 @@ func TestGetBlocksWireErrors(t *testing.T) {
 		// Decode from wire format.
 		var msg MsgGetBlocks
 		r := newFixedReader(test.max, test.buf)
-		err = msg.BchDecode(r, test.pver, test.enc)
+		err = msg.BchDecode(r, test.pver)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.readErr) {
 			t.Errorf("BchDecode #%d wrong error got: %v, want: %v",
 				i, err, test.readErr)

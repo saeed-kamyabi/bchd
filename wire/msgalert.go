@@ -333,7 +333,7 @@ type MsgAlert struct {
 
 // BchDecode decodes r using the bitcoin protocol encoding into the receiver.
 // This is part of the Message interface implementation.
-func (msg *MsgAlert) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgAlert) BchDecode(r io.Reader, pver uint32) error {
 	var err error
 
 	msg.SerializedPayload, err = ReadVarBytes(r, pver, MaxMessagePayload,
@@ -354,7 +354,7 @@ func (msg *MsgAlert) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) er
 
 // BchEncode encodes the receiver to w using the bitcoin protocol encoding.
 // This is part of the Message interface implementation.
-func (msg *MsgAlert) BchEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgAlert) BchEncode(w io.Writer, pver uint32) error {
 	var err error
 	var serializedpayload []byte
 	if msg.Payload != nil {

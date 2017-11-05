@@ -76,7 +76,7 @@ func (msg *MsgVersion) AddService(service ServiceFlag) {
 // *bytes.Buffer so the number of remaining bytes can be ascertained.
 //
 // This is part of the Message interface implementation.
-func (msg *MsgVersion) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgVersion) BchDecode(r io.Reader, pver uint32) error {
 	buf, ok := r.(*bytes.Buffer)
 	if !ok {
 		return fmt.Errorf("MsgVersion.BchDecode reader is not a " +
@@ -149,7 +149,7 @@ func (msg *MsgVersion) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) 
 
 // BchEncode encodes the receiver to w using the bitcoin protocol encoding.
 // This is part of the Message interface implementation.
-func (msg *MsgVersion) BchEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgVersion) BchEncode(w io.Writer, pver uint32) error {
 	err := validateUserAgent(msg.UserAgent)
 	if err != nil {
 		return err

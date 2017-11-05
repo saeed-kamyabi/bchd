@@ -43,14 +43,14 @@ func TestFilterClearCrossProtocol(t *testing.T) {
 
 	// Encode with latest protocol version.
 	var buf bytes.Buffer
-	err := msg.BchEncode(&buf, ProtocolVersion, LatestEncoding)
+	err := msg.BchEncode(&buf, ProtocolVersion)
 	if err != nil {
 		t.Errorf("encode of MsgFilterClear failed %v err <%v>", msg, err)
 	}
 
 	// Decode with old protocol version.
 	var readmsg MsgFilterClear
-	err = readmsg.BchDecode(&buf, BIP0031Version, LatestEncoding)
+	err = readmsg.BchDecode(&buf, BIP0031Version)
 	if err == nil {
 		t.Errorf("decode of MsgFilterClear succeeded when it "+
 			"shouldn't have %v", msg)
@@ -102,7 +102,7 @@ func TestFilterClearWire(t *testing.T) {
 	for i, test := range tests {
 		// Encode the message to wire format.
 		var buf bytes.Buffer
-		err := test.in.BchEncode(&buf, test.pver, test.enc)
+		err := test.in.BchEncode(&buf, test.pver)
 		if err != nil {
 			t.Errorf("BchEncode #%d error %v", i, err)
 			continue
@@ -116,7 +116,7 @@ func TestFilterClearWire(t *testing.T) {
 		// Decode the message from wire format.
 		var msg MsgFilterClear
 		rbuf := bytes.NewReader(test.buf)
-		err = msg.BchDecode(rbuf, test.pver, test.enc)
+		err = msg.BchDecode(rbuf, test.pver)
 		if err != nil {
 			t.Errorf("BchDecode #%d error %v", i, err)
 			continue
@@ -158,7 +158,7 @@ func TestFilterClearWireErrors(t *testing.T) {
 	for i, test := range tests {
 		// Encode to wire format.
 		w := newFixedWriter(test.max)
-		err := test.in.BchEncode(w, test.pver, test.enc)
+		err := test.in.BchEncode(w, test.pver)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.writeErr) {
 			t.Errorf("BchEncode #%d wrong error got: %v, want: %v",
 				i, err, test.writeErr)
@@ -178,7 +178,7 @@ func TestFilterClearWireErrors(t *testing.T) {
 		// Decode from wire format.
 		var msg MsgFilterClear
 		r := newFixedReader(test.max, test.buf)
-		err = msg.BchDecode(r, test.pver, test.enc)
+		err = msg.BchDecode(r, test.pver)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.readErr) {
 			t.Errorf("BchDecode #%d wrong error got: %v, want: %v",
 				i, err, test.readErr)

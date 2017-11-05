@@ -43,14 +43,14 @@ func TestFeeFilterLatest(t *testing.T) {
 
 	// Test encode with latest protocol version.
 	var buf bytes.Buffer
-	err := msg.BchEncode(&buf, pver, BaseEncoding)
+	err := msg.BchEncode(&buf, pver)
 	if err != nil {
 		t.Errorf("encode of MsgFeeFilter failed %v err <%v>", msg, err)
 	}
 
 	// Test decode with latest protocol version.
 	readmsg := NewMsgFeeFilter(0)
-	err = readmsg.BchDecode(&buf, pver, BaseEncoding)
+	err = readmsg.BchDecode(&buf, pver)
 	if err != nil {
 		t.Errorf("decode of MsgFeeFilter failed [%v] err <%v>", buf, err)
 	}
@@ -91,7 +91,7 @@ func TestFeeFilterWire(t *testing.T) {
 	for i, test := range tests {
 		// Encode the message to wire format.
 		var buf bytes.Buffer
-		err := test.in.BchEncode(&buf, test.pver, BaseEncoding)
+		err := test.in.BchEncode(&buf, test.pver)
 		if err != nil {
 			t.Errorf("BchEncode #%d error %v", i, err)
 			continue
@@ -105,7 +105,7 @@ func TestFeeFilterWire(t *testing.T) {
 		// Decode the message from wire format.
 		var msg MsgFeeFilter
 		rbuf := bytes.NewReader(test.buf)
-		err = msg.BchDecode(rbuf, test.pver, BaseEncoding)
+		err = msg.BchDecode(rbuf, test.pver)
 		if err != nil {
 			t.Errorf("BchDecode #%d error %v", i, err)
 			continue
@@ -149,7 +149,7 @@ func TestFeeFilterWireErrors(t *testing.T) {
 	for i, test := range tests {
 		// Encode to wire format.
 		w := newFixedWriter(test.max)
-		err := test.in.BchEncode(w, test.pver, BaseEncoding)
+		err := test.in.BchEncode(w, test.pver)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.writeErr) {
 			t.Errorf("BchEncode #%d wrong error got: %v, want: %v",
 				i, err, test.writeErr)
@@ -169,7 +169,7 @@ func TestFeeFilterWireErrors(t *testing.T) {
 		// Decode from wire format.
 		var msg MsgFeeFilter
 		r := newFixedReader(test.max, test.buf)
-		err = msg.BchDecode(r, test.pver, BaseEncoding)
+		err = msg.BchDecode(r, test.pver)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.readErr) {
 			t.Errorf("BchDecode #%d wrong error got: %v, want: %v",
 				i, err, test.readErr)

@@ -50,7 +50,7 @@ func (msg *MsgGetBlocks) AddBlockLocatorHash(hash *chainhash.Hash) error {
 
 // BchDecode decodes r using the bitcoin protocol encoding into the receiver.
 // This is part of the Message interface implementation.
-func (msg *MsgGetBlocks) BchDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgGetBlocks) BchDecode(r io.Reader, pver uint32) error {
 	err := readElement(r, &msg.ProtocolVersion)
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func (msg *MsgGetBlocks) BchDecode(r io.Reader, pver uint32, enc MessageEncoding
 
 // BchEncode encodes the receiver to w using the bitcoin protocol encoding.
 // This is part of the Message interface implementation.
-func (msg *MsgGetBlocks) BchEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgGetBlocks) BchEncode(w io.Writer, pver uint32) error {
 	count := len(msg.BlockLocatorHashes)
 	if count > MaxBlockLocatorsPerMsg {
 		str := fmt.Sprintf("too many block locator hashes for message "+
