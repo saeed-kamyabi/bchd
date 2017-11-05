@@ -220,7 +220,7 @@ var MainNetParams = Params{
 		{"btccash-seeder.bitcoinunlimited.info", true},
 		{"seed.bitprim.org", true},
 		{"seed.deadalnix.me", true},
-		{""seeder.criptolayer.net, true},
+		{"seeder.criptolayer.net", true},
 	},
 
 	// Chain parameters

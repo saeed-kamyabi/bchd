@@ -62,19 +62,6 @@ func TestWalletSvrCmds(t *testing.T) {
 			},
 		},
 		{
-			name: "addwitnessaddress",
-			newCmd: func() (interface{}, error) {
-				return bchjson.NewCmd("addwitnessaddress", "1address")
-			},
-			staticCmd: func() interface{} {
-				return bchjson.NewAddWitnessAddressCmd("1address")
-			},
-			marshalled: `{"jsonrpc":"1.0","method":"addwitnessaddress","params":["1address"],"id":1}`,
-			unmarshalled: &bchjson.AddWitnessAddressCmd{
-				Address: "1address",
-			},
-		},
-		{
 			name: "createmultisig",
 			newCmd: func() (interface{}, error) {
 				return bchjson.NewCmd("createmultisig", 2, []string{"031234", "035678"})

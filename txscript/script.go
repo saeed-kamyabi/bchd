@@ -5,845 +5,707 @@
 package txscript
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
-	"time"
+	"math/big"
 
-	"github.com/bchsuite/bchd/chaincfg/chainhash"
+	"github.com/bchsuite/bchd/bchec"
 	"github.com/bchsuite/bchd/wire"
 )
 
-// Bip16Activation is the timestamp where BIP0016 is valid to use in the
-// blockchain.  To be used to determine if BIP0016 should be called for or not.
-// This timestamp corresponds to Sun Apr 1 00:00:00 UTC 2012.
-var Bip16Activation = time.Unix(1333238400, 0)
+// ScriptFlags is a bitmask defining additional operations or tests that will be
+// done when executing a script pair.
+type ScriptFlags uint32
 
-// SigHashType represents hash type bits at the end of a signature.
-type SigHashType uint32
-
-// Hash type bits from the end of a signature.
 const (
-	SigHashOld          SigHashType = 0x0
-	SigHashAll          SigHashType = 0x1
-	SigHashNone         SigHashType = 0x2
-	SigHashSingle       SigHashType = 0x3
-	SigHashAnyOneCanPay SigHashType = 0x80
+	// ScriptBip16 defines whether the bip16 threshold has passed and thus
+	// pay-to-script hash transactions will be fully validated.
+	ScriptBip16 ScriptFlags = 1 << iota
 
-	// sigHashMask defines the number of bits of the hash type which is used
-	// to identify which outputs are signed.
-	sigHashMask = 0x1f
+	// ScriptStrictMultiSig defines whether to verify the stack item
+	// used by CHECKMULTISIG is zero length.
+	ScriptStrictMultiSig
+
+	// ScriptDiscourageUpgradableNops defines whether to verify that
+	// NOP1 through NOP10 are reserved for future soft-fork upgrades.  This
+	// flag must not be used for consensus critical code nor applied to
+	// blocks as this flag is only for stricter standard transaction
+	// checks.  This flag is only applied when the above opcodes are
+	// executed.
+	ScriptDiscourageUpgradableNops
+
+	// ScriptVerifyCheckLockTimeVerify defines whether to verify that
+	// a transaction output is spendable based on the locktime.
+	// This is BIP0065.
+	ScriptVerifyCheckLockTimeVerify
+
+	// ScriptVerifyCheckSequenceVerify defines whether to allow execution
+	// pathways of a script to be restricted based on the age of the output
+	// being spent.  This is BIP0112.
+	ScriptVerifyCheckSequenceVerify
+
+	// ScriptVerifyCleanStack defines that the stack must contain only
+	// one stack element after evaluation and that the element must be
+	// true if interpreted as a boolean.  This is rule 6 of BIP0062.
+	// This flag should never be used without the ScriptBip16 flag.
+	ScriptVerifyCleanStack
+
+	// ScriptVerifyDERSignatures defines that signatures are required
+	// to compily with the DER format.
+	ScriptVerifyDERSignatures
+
+	// ScriptVerifyLowS defines that signtures are required to comply with
+	// the DER format and whose S value is <= order / 2.  This is rule 5
+	// of BIP0062.
+	ScriptVerifyLowS
+
+	// ScriptVerifyMinimalData defines that signatures must use the smallest
+	// push operator. This is both rules 3 and 4 of BIP0062.
+	ScriptVerifyMinimalData
+
+	// ScriptVerifyNullFail defines that signatures must be empty if
+	// a CHECKSIG or CHECKMULTISIG operation fails.
+	ScriptVerifyNullFail
+
+	// ScriptVerifySigPushOnly defines that signature scripts must contain
+	// only pushed data.  This is rule 2 of BIP0062.
+	ScriptVerifySigPushOnly
+
+	// ScriptVerifyStrictEncoding defines that signature scripts and
+	// public keys must follow the strict encoding requirements.
+	ScriptVerifyStrictEncoding
 )
 
-// These are the constants specified for maximums in individual scripts.
 const (
-	MaxOpsPerScript       = 201 // Max number of non-push operations.
-	MaxPubKeysPerMultiSig = 20  // Multisig can't have more sigs than this.
-	MaxScriptElementSize  = 520 // Max bytes pushable to the stack.
+	// MaxStackSize is the maximum combined height of stack and alt stack
+	// during execution.
+	MaxStackSize = 1000
+
+	// MaxScriptSize is the maximum allowed length of a raw script.
+	MaxScriptSize = 10000
 )
 
-// isSmallInt returns whether or not the opcode is considered a small integer,
-// which is an OP_0, or OP_1 through OP_16.
-func isSmallInt(op *opcode) bool {
-	if op.value == OP_0 || (op.value >= OP_1 && op.value <= OP_16) {
+// halforder is used to tame ECDSA malleability (see BIP0062).
+var halfOrder = new(big.Int).Rsh(bchec.S256().N, 1)
+
+// Engine is the virtual machine that executes scripts.
+type Engine struct {
+	scripts         [][]parsedOpcode
+	scriptIdx       int
+	scriptOff       int
+	lastCodeSep     int
+	dstack          stack // data stack
+	astack          stack // alt stack
+	tx              wire.MsgTx
+	txIdx           int
+	condStack       []int
+	numOps          int
+	flags           ScriptFlags
+	sigCache        *SigCache
+	bip16           bool     // treat execution as pay-to-script-hash
+	savedFirstStack [][]byte // stack from first script for bip16 scripts
+}
+
+// hasFlag returns whether the script engine instance has the passed flag set.
+func (vm *Engine) hasFlag(flag ScriptFlags) bool {
+	return vm.flags&flag == flag
+}
+
+// isBranchExecuting returns whether or not the current conditional branch is
+// actively executing.  For example, when the data stack has an OP_FALSE on it
+// and an OP_IF is encountered, the branch is inactive until an OP_ELSE or
+// OP_ENDIF is encountered.  It properly handles nested conditionals.
+func (vm *Engine) isBranchExecuting() bool {
+	if len(vm.condStack) == 0 {
 		return true
 	}
-	return false
+	return vm.condStack[len(vm.condStack)-1] == OpCondTrue
 }
 
-// isScriptHash returns true if the script passed is a pay-to-script-hash
-// transaction, false otherwise.
-func isScriptHash(pops []parsedOpcode) bool {
-	return len(pops) == 3 &&
-		pops[0].opcode.value == OP_HASH160 &&
-		pops[1].opcode.value == OP_DATA_20 &&
-		pops[2].opcode.value == OP_EQUAL
-}
-
-// IsPayToScriptHash returns true if the script is in the standard
-// pay-to-script-hash (P2SH) format, false otherwise.
-func IsPayToScriptHash(script []byte) bool {
-	pops, err := parseScript(script)
-	if err != nil {
-		return false
-	}
-	return isScriptHash(pops)
-}
-
-// isWitnessScriptHash returns true if the passed script is a
-// pay-to-witness-script-hash transaction, false otherwise.
-func isWitnessScriptHash(pops []parsedOpcode) bool {
-	return len(pops) == 2 &&
-		pops[0].opcode.value == OP_0 &&
-		pops[1].opcode.value == OP_DATA_32
-}
-
-// IsPayToWitnessScriptHash returns true if the is in the standard
-// pay-to-witness-script-hash (P2WSH) format, false otherwise.
-func IsPayToWitnessScriptHash(script []byte) bool {
-	pops, err := parseScript(script)
-	if err != nil {
-		return false
-	}
-	return isWitnessScriptHash(pops)
-}
-
-// IsPayToWitnessPubKeyHash returns true if the is in the standard
-// pay-to-witness-pubkey-hash (P2WKH) format, false otherwise.
-func IsPayToWitnessPubKeyHash(script []byte) bool {
-	pops, err := parseScript(script)
-	if err != nil {
-		return false
-	}
-	return isWitnessPubKeyHash(pops)
-}
-
-// isWitnessPubKeyHash returns true if the passed script is a
-// pay-to-witness-pubkey-hash, and false otherwise.
-func isWitnessPubKeyHash(pops []parsedOpcode) bool {
-	return len(pops) == 2 &&
-		pops[0].opcode.value == OP_0 &&
-		pops[1].opcode.value == OP_DATA_20
-}
-
-// IsWitnessProgram returns true if the passed script is a valid witness
-// program which is encoded according to the passed witness program version. A
-// witness program must be a small integer (from 0-16), followed by 2-40 bytes
-// of pushed data.
-func IsWitnessProgram(script []byte) bool {
-	// The length of the script must be between 4 and 42 bytes. The
-	// smallest program is the witness version, followed by a data push of
-	// 2 bytes.  The largest allowed witness program has a data push of
-	// 40-bytes.
-	if len(script) < 4 || len(script) > 42 {
-		return false
+// executeOpcode peforms execution on the passed opcode.  It takes into account
+// whether or not it is hidden by conditionals, but some rules still must be
+// tested in this case.
+func (vm *Engine) executeOpcode(pop *parsedOpcode) error {
+	// Disabled opcodes are fail on program counter.
+	if pop.isDisabled() {
+		str := fmt.Sprintf("attempt to execute disabled opcode %s",
+			pop.opcode.name)
+		return scriptError(ErrDisabledOpcode, str)
 	}
 
-	pops, err := parseScript(script)
-	if err != nil {
-		return false
+	// Always-illegal opcodes are fail on program counter.
+	if pop.alwaysIllegal() {
+		str := fmt.Sprintf("attempt to execute reserved opcode %s",
+			pop.opcode.name)
+		return scriptError(ErrReservedOpcode, str)
 	}
 
-	return isWitnessProgram(pops)
-}
+	// Note that this includes OP_RESERVED which counts as a push operation.
+	if pop.opcode.value > OP_16 {
+		vm.numOps++
+		if vm.numOps > MaxOpsPerScript {
+			str := fmt.Sprintf("exceeded max operation limit of %d",
+				MaxOpsPerScript)
+			return scriptError(ErrTooManyOperations, str)
+		}
 
-// isWitnessProgram returns true if the passed script is a witness program, and
-// false otherwise. A witness program MUST adhere to the following constraints:
-// there must be excatly two pops (program version and the program itself), the
-// first opcode MUST be a small integer (0-16), the push data MUST be
-// cannonical, and finally the size of the push data must be between 2 and 40
-// bytes.
-func isWitnessProgram(pops []parsedOpcode) bool {
-	return len(pops) == 2 &&
-		isSmallInt(pops[0].opcode) &&
-		canonicalPush(pops[1]) &&
-		(len(pops[1].data) >= 2 && len(pops[1].data) <= 40)
-}
-
-// ExtractWitnessProgramInfo attempts to extract the witness program version,
-// as well as the witness program itself from the passed script.
-func ExtractWitnessProgramInfo(script []byte) (int, []byte, error) {
-	pops, err := parseScript(script)
-	if err != nil {
-		return 0, nil, err
+	} else if len(pop.data) > MaxScriptElementSize {
+		str := fmt.Sprintf("element size %d exceeds max allowed size %d",
+			len(pop.data), MaxScriptElementSize)
+		return scriptError(ErrElementTooBig, str)
 	}
 
-	// If at this point, the scripts doesn't resemble a witness program,
-	// then we'll exit early as there isn't a valid version or program to
-	// extract.
-	if !isWitnessProgram(pops) {
-		return 0, nil, fmt.Errorf("script is not a witness program, " +
-			"unable to extract version or witness program")
+	// Nothing left to do when this is not a conditional opcode and it is
+	// not in an executing branch.
+	if !vm.isBranchExecuting() && !pop.isConditional() {
+		return nil
 	}
 
-	witnessVersion := asSmallInt(pops[0].opcode)
-	witnessProgram := pops[1].data
+	// Ensure all executed data push opcodes use the minimal encoding when
+	// the minimal data verification flag is set.
+	if vm.dstack.verifyMinimalData && vm.isBranchExecuting() &&
+		pop.opcode.value >= 0 && pop.opcode.value <= OP_PUSHDATA4 {
 
-	return witnessVersion, witnessProgram, nil
-}
-
-// isPushOnly returns true if the script only pushes data, false otherwise.
-func isPushOnly(pops []parsedOpcode) bool {
-	// NOTE: This function does NOT verify opcodes directly since it is
-	// internal and is only called with parsed opcodes for scripts that did
-	// not have any parse errors.  Thus, consensus is properly maintained.
-
-	for _, pop := range pops {
-		// All opcodes up to OP_16 are data push instructions.
-		// NOTE: This does consider OP_RESERVED to be a data push
-		// instruction, but execution of OP_RESERVED will fail anyways
-		// and matches the behavior required by consensus.
-		if pop.opcode.value > OP_16 {
-			return false
+		if err := pop.checkMinimalDataPush(); err != nil {
+			return err
 		}
 	}
-	return true
+
+	return pop.opcode.opfunc(pop, vm)
 }
 
-// IsPushOnlyScript returns whether or not the passed script only pushes data.
+// disasm is a helper function to produce the output for DisasmPC and
+// DisasmScript.  It produces the opcode prefixed by the program counter at the
+// provided position in the script.  It does no error checking and leaves that
+// to the caller to provide a valid offset.
+func (vm *Engine) disasm(scriptIdx int, scriptOff int) string {
+	return fmt.Sprintf("%02x:%04x: %s", scriptIdx, scriptOff,
+		vm.scripts[scriptIdx][scriptOff].print(false))
+}
+
+// validPC returns an error if the current script position is valid for
+// execution, nil otherwise.
+func (vm *Engine) validPC() error {
+	if vm.scriptIdx >= len(vm.scripts) {
+		str := fmt.Sprintf("past input scripts %v:%v %v:xxxx",
+			vm.scriptIdx, vm.scriptOff, len(vm.scripts))
+		return scriptError(ErrInvalidProgramCounter, str)
+	}
+	if vm.scriptOff >= len(vm.scripts[vm.scriptIdx]) {
+		str := fmt.Sprintf("past input scripts %v:%v %v:%04d",
+			vm.scriptIdx, vm.scriptOff, vm.scriptIdx,
+			len(vm.scripts[vm.scriptIdx]))
+		return scriptError(ErrInvalidProgramCounter, str)
+	}
+	return nil
+}
+
+// curPC returns either the current script and offset, or an error if the
+// position isn't valid.
+func (vm *Engine) curPC() (script int, off int, err error) {
+	err = vm.validPC()
+	if err != nil {
+		return 0, 0, err
+	}
+	return vm.scriptIdx, vm.scriptOff, nil
+}
+
+// DisasmPC returns the string for the disassembly of the opcode that will be
+// next to execute when Step() is called.
+func (vm *Engine) DisasmPC() (string, error) {
+	scriptIdx, scriptOff, err := vm.curPC()
+	if err != nil {
+		return "", err
+	}
+	return vm.disasm(scriptIdx, scriptOff), nil
+}
+
+// DisasmScript returns the disassembly string for the script at the requested
+// offset index.  Index 0 is the signature script and 1 is the public key
+// script.
+func (vm *Engine) DisasmScript(idx int) (string, error) {
+	if idx >= len(vm.scripts) {
+		str := fmt.Sprintf("script index %d >= total scripts %d", idx,
+			len(vm.scripts))
+		return "", scriptError(ErrInvalidIndex, str)
+	}
+
+	var disstr string
+	for i := range vm.scripts[idx] {
+		disstr = disstr + vm.disasm(idx, i) + "\n"
+	}
+	return disstr, nil
+}
+
+// CheckErrorCondition returns nil if the running script has ended and was
+// successful, leaving a a true boolean on the stack.  An error otherwise,
+// including if the script has not finished.
+func (vm *Engine) CheckErrorCondition(finalScript bool) error {
+	// Check execution is actually done.  When pc is past the end of script
+	// array there are no more scripts to run.
+	if vm.scriptIdx < len(vm.scripts) {
+		return scriptError(ErrScriptUnfinished,
+			"error check when script unfinished")
+	}
+	if finalScript && vm.hasFlag(ScriptVerifyCleanStack) &&
+		vm.dstack.Depth() != 1 {
+
+		str := fmt.Sprintf("stack contains %d unexpected items",
+			vm.dstack.Depth()-1)
+		return scriptError(ErrCleanStack, str)
+	} else if vm.dstack.Depth() < 1 {
+		return scriptError(ErrEmptyStack,
+			"stack empty at end of script execution")
+	}
+
+	v, err := vm.dstack.PopBool()
+	if err != nil {
+		return err
+	}
+	if !v {
+		// Log interesting data.
+		log.Tracef("%v", newLogClosure(func() string {
+			dis0, _ := vm.DisasmScript(0)
+			dis1, _ := vm.DisasmScript(1)
+			return fmt.Sprintf("scripts failed: script0: %s\n"+
+				"script1: %s", dis0, dis1)
+		}))
+		return scriptError(ErrEvalFalse,
+			"false stack entry at end of script execution")
+	}
+	return nil
+}
+
+// Step will execute the next instruction and move the program counter to the
+// next opcode in the script, or the next script if the current has ended.  Step
+// will return true in the case that the last opcode was successfully executed.
 //
-// False will be returned when the script does not parse.
-func IsPushOnlyScript(script []byte) bool {
-	pops, err := parseScript(script)
+// The result of calling Step or any other method is undefined if an error is
+// returned.
+func (vm *Engine) Step() (done bool, err error) {
+	// Verify that it is pointing to a valid script address.
+	err = vm.validPC()
 	if err != nil {
-		return false
+		return true, err
 	}
-	return isPushOnly(pops)
-}
+	opcode := &vm.scripts[vm.scriptIdx][vm.scriptOff]
 
-// parseScriptTemplate is the same as parseScript but allows the passing of the
-// template list for testing purposes.  When there are parse errors, it returns
-// the list of parsed opcodes up to the point of failure along with the error.
-func parseScriptTemplate(script []byte, opcodes *[256]opcode) ([]parsedOpcode, error) {
-	retScript := make([]parsedOpcode, 0, len(script))
-	for i := 0; i < len(script); {
-		instr := script[i]
-		op := &opcodes[instr]
-		pop := parsedOpcode{opcode: op}
+	// Execute the opcode while taking into account several things such as
+	// disabled opcodes, illegal opcodes, maximum allowed operations per
+	// script, maximum script element sizes, and conditionals.
+	err = vm.executeOpcode(opcode)
+	if err != nil {
+		return true, err
+	}
 
-		// Parse data out of instruction.
-		switch {
-		// No additional data.  Note that some of the opcodes, notably
-		// OP_1NEGATE, OP_0, and OP_[1-16] represent the data
-		// themselves.
-		case op.length == 1:
-			i++
+	// The number of elements in the combination of the data and alt stacks
+	// must not exceed the maximum number of stack elements allowed.
+	combinedStackSize := vm.dstack.Depth() + vm.astack.Depth()
+	if combinedStackSize > MaxStackSize {
+		str := fmt.Sprintf("combined stack size %d > max allowed %d",
+			combinedStackSize, MaxStackSize)
+		return false, scriptError(ErrStackOverflow, str)
+	}
 
-		// Data pushes of specific lengths -- OP_DATA_[1-75].
-		case op.length > 1:
-			if len(script[i:]) < op.length {
-				str := fmt.Sprintf("opcode %s requires %d "+
-					"bytes, but script only has %d remaining",
-					op.name, op.length, len(script[i:]))
-				return retScript, scriptError(ErrMalformedPush,
-					str)
-			}
-
-			// Slice out the data.
-			pop.data = script[i+1 : i+op.length]
-			i += op.length
-
-		// Data pushes with parsed lengths -- OP_PUSHDATAP{1,2,4}.
-		case op.length < 0:
-			var l uint
-			off := i + 1
-
-			if len(script[off:]) < -op.length {
-				str := fmt.Sprintf("opcode %s requires %d "+
-					"bytes, but script only has %d remaining",
-					op.name, -op.length, len(script[off:]))
-				return retScript, scriptError(ErrMalformedPush,
-					str)
-			}
-
-			// Next -length bytes are little endian length of data.
-			switch op.length {
-			case -1:
-				l = uint(script[off])
-			case -2:
-				l = ((uint(script[off+1]) << 8) |
-					uint(script[off]))
-			case -4:
-				l = ((uint(script[off+3]) << 24) |
-					(uint(script[off+2]) << 16) |
-					(uint(script[off+1]) << 8) |
-					uint(script[off]))
-			default:
-				str := fmt.Sprintf("invalid opcode length %d",
-					op.length)
-				return retScript, scriptError(ErrMalformedPush,
-					str)
-			}
-
-			// Move offset to beginning of the data.
-			off += -op.length
-
-			// Disallow entries that do not fit script or were
-			// sign extended.
-			if int(l) > len(script[off:]) || int(l) < 0 {
-				str := fmt.Sprintf("opcode %s pushes %d bytes, "+
-					"but script only has %d remaining",
-					op.name, int(l), len(script[off:]))
-				return retScript, scriptError(ErrMalformedPush,
-					str)
-			}
-
-			pop.data = script[off : off+int(l)]
-			i += 1 - op.length + int(l)
+	// Prepare for next instruction.
+	vm.scriptOff++
+	if vm.scriptOff >= len(vm.scripts[vm.scriptIdx]) {
+		// Illegal to have an `if' that straddles two scripts.
+		if err == nil && len(vm.condStack) != 0 {
+			return false, scriptError(ErrUnbalancedConditional,
+				"end of script reached in conditional execution")
 		}
 
-		retScript = append(retScript, pop)
+		// Alt stack doesn't persist.
+		_ = vm.astack.DropN(vm.astack.Depth())
+
+		vm.numOps = 0 // number of ops is per script.
+		vm.scriptOff = 0
+		if vm.scriptIdx == 0 && vm.bip16 {
+			vm.scriptIdx++
+			vm.savedFirstStack = vm.GetStack()
+		} else if vm.scriptIdx == 1 && vm.bip16 {
+			// Put us past the end for CheckErrorCondition()
+			vm.scriptIdx++
+			// Check script ran successfully and pull the script
+			// out of the first stack and execute that.
+			err := vm.CheckErrorCondition(false)
+			if err != nil {
+				return false, err
+			}
+
+			script := vm.savedFirstStack[len(vm.savedFirstStack)-1]
+			pops, err := parseScript(script)
+			if err != nil {
+				return false, err
+			}
+			vm.scripts = append(vm.scripts, pops)
+
+			// Set stack to be the stack from first script minus the
+			// script itself
+			vm.SetStack(vm.savedFirstStack[:len(vm.savedFirstStack)-1])
+		} else {
+			vm.scriptIdx++
+		}
+		// there are zero length scripts in the wild
+		if vm.scriptIdx < len(vm.scripts) && vm.scriptOff >= len(vm.scripts[vm.scriptIdx]) {
+			vm.scriptIdx++
+		}
+		vm.lastCodeSep = 0
+		if vm.scriptIdx >= len(vm.scripts) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Execute will execute all scripts in the script engine and return either nil
+// for successful validation or an error if one occurred.
+func (vm *Engine) Execute() (err error) {
+	done := false
+	for !done {
+		log.Tracef("%v", newLogClosure(func() string {
+			dis, err := vm.DisasmPC()
+			if err != nil {
+				return fmt.Sprintf("stepping (%v)", err)
+			}
+			return fmt.Sprintf("stepping %v", dis)
+		}))
+
+		done, err = vm.Step()
+		if err != nil {
+			return err
+		}
+		log.Tracef("%v", newLogClosure(func() string {
+			var dstr, astr string
+
+			// if we're tracing, dump the stacks.
+			if vm.dstack.Depth() != 0 {
+				dstr = "Stack:\n" + vm.dstack.String()
+			}
+			if vm.astack.Depth() != 0 {
+				astr = "AltStack:\n" + vm.astack.String()
+			}
+
+			return dstr + astr
+		}))
 	}
 
-	return retScript, nil
+	return vm.CheckErrorCondition(true)
 }
 
-// parseScript preparses the script in bytes into a list of parsedOpcodes while
-// applying a number of sanity checks.
-func parseScript(script []byte) ([]parsedOpcode, error) {
-	return parseScriptTemplate(script, &opcodeArray)
+// subScript returns the script since the last OP_CODESEPARATOR.
+func (vm *Engine) subScript() []parsedOpcode {
+	return vm.scripts[vm.scriptIdx][vm.lastCodeSep:]
 }
 
-// unparseScript reversed the action of parseScript and returns the
-// parsedOpcodes as a list of bytes
-func unparseScript(pops []parsedOpcode) ([]byte, error) {
-	script := make([]byte, 0, len(pops))
-	for _, pop := range pops {
-		b, err := pop.bytes()
+// checkHashTypeEncoding returns whether or not the passed hashtype adheres to
+// the strict encoding requirements if enabled.
+func (vm *Engine) checkHashTypeEncoding(hashType SigHashType) error {
+	if !vm.hasFlag(ScriptVerifyStrictEncoding) {
+		return nil
+	}
+
+	sigHashType := hashType & ^SigHashAnyOneCanPay
+	if sigHashType < SigHashAll || sigHashType > SigHashSingle {
+		str := fmt.Sprintf("invalid hash type 0x%x", hashType)
+		return scriptError(ErrInvalidSigHashType, str)
+	}
+	return nil
+}
+
+// checkPubKeyEncoding returns whether or not the passed public key adheres to
+// the strict encoding requirements if enabled.
+func (vm *Engine) checkPubKeyEncoding(pubKey []byte) error {
+	if !vm.hasFlag(ScriptVerifyStrictEncoding) {
+		return nil
+	}
+
+	if len(pubKey) == 33 && (pubKey[0] == 0x02 || pubKey[0] == 0x03) {
+		// Compressed
+		return nil
+	}
+	if len(pubKey) == 65 && pubKey[0] == 0x04 {
+		// Uncompressed
+		return nil
+	}
+	return scriptError(ErrPubKeyType, "unsupported public key type")
+}
+
+// checkSignatureEncoding returns whether or not the passed signature adheres to
+// the strict encoding requirements if enabled.
+func (vm *Engine) checkSignatureEncoding(sig []byte) error {
+	if !vm.hasFlag(ScriptVerifyDERSignatures) &&
+		!vm.hasFlag(ScriptVerifyLowS) &&
+		!vm.hasFlag(ScriptVerifyStrictEncoding) {
+
+		return nil
+	}
+
+	// The format of a DER encoded signature is as follows:
+	//
+	// 0x30 <total length> 0x02 <length of R> <R> 0x02 <length of S> <S>
+	//   - 0x30 is the ASN.1 identifier for a sequence
+	//   - Total length is 1 byte and specifies length of all remaining data
+	//   - 0x02 is the ASN.1 identifier that specifies an integer follows
+	//   - Length of R is 1 byte and specifies how many bytes R occupies
+	//   - R is the arbitrary length big-endian encoded number which
+	//     represents the R value of the signature.  DER encoding dictates
+	//     that the value must be encoded using the minimum possible number
+	//     of bytes.  This implies the first byte can only be null if the
+	//     highest bit of the next byte is set in order to prevent it from
+	//     being interpreted as a negative number.
+	//   - 0x02 is once again the ASN.1 integer identifier
+	//   - Length of S is 1 byte and specifies how many bytes S occupies
+	//   - S is the arbitrary length big-endian encoded number which
+	//     represents the S value of the signature.  The encoding rules are
+	//     identical as those for R.
+
+	// Minimum length is when both numbers are 1 byte each.
+	// 0x30 + <1-byte> + 0x02 + 0x01 + <byte> + 0x2 + 0x01 + <byte>
+	if len(sig) < 8 {
+		// Too short
+		str := fmt.Sprintf("malformed signature: too short: %d < 8",
+			len(sig))
+		return scriptError(ErrSigDER, str)
+	}
+
+	// Maximum length is when both numbers are 33 bytes each.  It is 33
+	// bytes because a 256-bit integer requires 32 bytes and an additional
+	// leading null byte might required if the high bit is set in the value.
+	// 0x30 + <1-byte> + 0x02 + 0x21 + <33 bytes> + 0x2 + 0x21 + <33 bytes>
+	if len(sig) > 72 {
+		// Too long
+		str := fmt.Sprintf("malformed signature: too long: %d > 72",
+			len(sig))
+		return scriptError(ErrSigDER, str)
+	}
+	if sig[0] != 0x30 {
+		// Wrong type
+		str := fmt.Sprintf("malformed signature: format has wrong "+
+			"type: 0x%x", sig[0])
+		return scriptError(ErrSigDER, str)
+	}
+	if int(sig[1]) != len(sig)-2 {
+		// Invalid length
+		str := fmt.Sprintf("malformed signature: bad length: %d != %d",
+			sig[1], len(sig)-2)
+		return scriptError(ErrSigDER, str)
+	}
+
+	rLen := int(sig[3])
+
+	// Make sure S is inside the signature.
+	if rLen+5 > len(sig) {
+		return scriptError(ErrSigDER,
+			"malformed signature: S out of bounds")
+	}
+
+	sLen := int(sig[rLen+5])
+
+	// The length of the elements does not match the length of the
+	// signature.
+	if rLen+sLen+6 != len(sig) {
+		return scriptError(ErrSigDER,
+			"malformed signature: invalid R length")
+	}
+
+	// R elements must be integers.
+	if sig[2] != 0x02 {
+		return scriptError(ErrSigDER,
+			"malformed signature: missing first integer marker")
+	}
+
+	// Zero-length integers are not allowed for R.
+	if rLen == 0 {
+		return scriptError(ErrSigDER,
+			"malformed signature: R length is zero")
+	}
+
+	// R must not be negative.
+	if sig[4]&0x80 != 0 {
+		return scriptError(ErrSigDER,
+			"malformed signature: R value is negative")
+	}
+
+	// Null bytes at the start of R are not allowed, unless R would
+	// otherwise be interpreted as a negative number.
+	if rLen > 1 && sig[4] == 0x00 && sig[5]&0x80 == 0 {
+		return scriptError(ErrSigDER,
+			"malformed signature: invalid R value")
+	}
+
+	// S elements must be integers.
+	if sig[rLen+4] != 0x02 {
+		return scriptError(ErrSigDER,
+			"malformed signature: missing second integer marker")
+	}
+
+	// Zero-length integers are not allowed for S.
+	if sLen == 0 {
+		return scriptError(ErrSigDER,
+			"malformed signature: S length is zero")
+	}
+
+	// S must not be negative.
+	if sig[rLen+6]&0x80 != 0 {
+		return scriptError(ErrSigDER,
+			"malformed signature: S value is negative")
+	}
+
+	// Null bytes at the start of S are not allowed, unless S would
+	// otherwise be interpreted as a negative number.
+	if sLen > 1 && sig[rLen+6] == 0x00 && sig[rLen+7]&0x80 == 0 {
+		return scriptError(ErrSigDER,
+			"malformed signature: invalid S value")
+	}
+
+	// Verify the S value is <= half the order of the curve.  This check is
+	// done because when it is higher, the complement modulo the order can
+	// be used instead which is a shorter encoding by 1 byte.  Further,
+	// without enforcing this, it is possible to replace a signature in a
+	// valid transaction with the complement while still being a valid
+	// signature that verifies.  This would result in changing the
+	// transaction hash and thus is source of malleability.
+	if vm.hasFlag(ScriptVerifyLowS) {
+		sValue := new(big.Int).SetBytes(sig[rLen+6 : rLen+6+sLen])
+		if sValue.Cmp(halfOrder) > 0 {
+			return scriptError(ErrSigHighS,
+				"signature is not canonical due to "+
+					"unnecessarily high S value")
+		}
+	}
+
+	return nil
+}
+
+// getStack returns the contents of stack as a byte array bottom up
+func getStack(stack *stack) [][]byte {
+	array := make([][]byte, stack.Depth())
+	for i := range array {
+		// PeekByteArry can't fail due to overflow, already checked
+		array[len(array)-i-1], _ = stack.PeekByteArray(int32(i))
+	}
+	return array
+}
+
+// setStack sets the stack to the contents of the array where the last item in
+// the array is the top item in the stack.
+func setStack(stack *stack, data [][]byte) {
+	// This can not error. Only errors are for invalid arguments.
+	_ = stack.DropN(stack.Depth())
+
+	for i := range data {
+		stack.PushByteArray(data[i])
+	}
+}
+
+// GetStack returns the contents of the primary stack as an array. where the
+// last item in the array is the top of the stack.
+func (vm *Engine) GetStack() [][]byte {
+	return getStack(&vm.dstack)
+}
+
+// SetStack sets the contents of the primary stack to the contents of the
+// provided array where the last item in the array will be the top of the stack.
+func (vm *Engine) SetStack(data [][]byte) {
+	setStack(&vm.dstack, data)
+}
+
+// GetAltStack returns the contents of the alternate stack as an array where the
+// last item in the array is the top of the stack.
+func (vm *Engine) GetAltStack() [][]byte {
+	return getStack(&vm.astack)
+}
+
+// SetAltStack sets the contents of the alternate stack to the contents of the
+// provided array where the last item in the array will be the top of the stack.
+func (vm *Engine) SetAltStack(data [][]byte) {
+	setStack(&vm.astack, data)
+}
+
+// NewEngine returns a new script engine for the provided public key script,
+// transaction, and input index.  The flags modify the behavior of the script
+// engine according to the description provided by each flag.
+func NewEngine(scriptPubKey []byte, tx *wire.MsgTx, txIdx int, flags ScriptFlags, sigCache *SigCache) (*Engine, error) {
+	// The provided transaction input index must refer to a valid input.
+	if txIdx < 0 || txIdx >= len(tx.TxIn) {
+		str := fmt.Sprintf("transaction input index %d is negative or "+
+			">= %d", txIdx, len(tx.TxIn))
+		return nil, scriptError(ErrInvalidIndex, str)
+	}
+	scriptSig := tx.TxIn[txIdx].SignatureScript
+
+	// When both the signature script and public key script are empty the
+	// result is necessarily an error since the stack would end up being
+	// empty which is equivalent to a false top element.  Thus, just return
+	// the relevant error now as an optimization.
+	if len(scriptSig) == 0 && len(scriptPubKey) == 0 {
+		return nil, scriptError(ErrEvalFalse,
+			"false stack entry at end of script execution")
+	}
+
+	// The clean stack flag (ScriptVerifyCleanStack) is not allowed without
+	// the pay-to-script-hash (P2SH) evaluation (ScriptBip16) flag.
+	//
+	// Recall that evaluating a P2SH script without the flag set results in
+	// non-P2SH evaluation which leaves the P2SH inputs on the stack.  Thus,
+	// allowing the clean stack flag without the P2SH flag would make it
+	// possible to have a situation where P2SH would not be a soft fork when
+	// it should be.
+	vm := Engine{flags: flags, sigCache: sigCache}
+	if vm.hasFlag(ScriptVerifyCleanStack) && !vm.hasFlag(ScriptBip16) {
+		return nil, scriptError(ErrInvalidFlags,
+			"invalid flags combination")
+	}
+
+	// The signature script must only contain data pushes when the
+	// associated flag is set.
+	if vm.hasFlag(ScriptVerifySigPushOnly) && !IsPushOnlyScript(scriptSig) {
+		return nil, scriptError(ErrNotPushOnly,
+			"signature script is not push only")
+	}
+
+	// The engine stores the scripts in parsed form using a slice.  This
+	// allows multiple scripts to be executed in sequence.  For example,
+	// with a pay-to-script-hash transaction, there will be ultimately be
+	// a third script to execute.
+	scripts := [][]byte{scriptSig, scriptPubKey}
+	vm.scripts = make([][]parsedOpcode, len(scripts))
+	for i, scr := range scripts {
+		if len(scr) > MaxScriptSize {
+			str := fmt.Sprintf("script size %d is larger than max "+
+				"allowed size %d", len(scr), MaxScriptSize)
+			return nil, scriptError(ErrScriptTooBig, str)
+		}
+		var err error
+		vm.scripts[i], err = parseScript(scr)
 		if err != nil {
 			return nil, err
 		}
-		script = append(script, b...)
 	}
-	return script, nil
-}
 
-// DisasmString formats a disassembled script for one line printing.  When the
-// script fails to parse, the returned string will contain the disassembled
-// script up to the point the failure occurred along with the string '[error]'
-// appended.  In addition, the reason the script failed to parse is returned
-// if the caller wants more information about the failure.
-func DisasmString(buf []byte) (string, error) {
-	var disbuf bytes.Buffer
-	opcodes, err := parseScript(buf)
-	for _, pop := range opcodes {
-		disbuf.WriteString(pop.print(true))
-		disbuf.WriteByte(' ')
+	// Advance the program counter to the public key script if the signature
+	// script is empty since there is nothing to execute for it in that
+	// case.
+	if len(scripts[0]) == 0 {
+		vm.scriptIdx++
 	}
-	if disbuf.Len() > 0 {
-		disbuf.Truncate(disbuf.Len() - 1)
-	}
-	if err != nil {
-		disbuf.WriteString("[error]")
-	}
-	return disbuf.String(), err
-}
 
-// removeOpcode will remove any opcode matching ``opcode'' from the opcode
-// stream in pkscript
-func removeOpcode(pkscript []parsedOpcode, opcode byte) []parsedOpcode {
-	retScript := make([]parsedOpcode, 0, len(pkscript))
-	for _, pop := range pkscript {
-		if pop.opcode.value != opcode {
-			retScript = append(retScript, pop)
+	if vm.hasFlag(ScriptBip16) && isScriptHash(vm.scripts[1]) {
+		// Only accept input scripts that push data for P2SH.
+		if !isPushOnly(vm.scripts[0]) {
+			return nil, scriptError(ErrNotPushOnly,
+				"pay to script hash is not push only")
 		}
+		vm.bip16 = true
 	}
-	return retScript
-}
-
-// canonicalPush returns true if the object is either not a push instruction
-// or the push instruction contained wherein is matches the canonical form
-// or using the smallest instruction to do the job. False otherwise.
-func canonicalPush(pop parsedOpcode) bool {
-	opcode := pop.opcode.value
-	data := pop.data
-	dataLen := len(pop.data)
-	if opcode > OP_16 {
-		return true
+	if vm.hasFlag(ScriptVerifyMinimalData) {
+		vm.dstack.verifyMinimalData = true
+		vm.astack.verifyMinimalData = true
 	}
 
-	if opcode < OP_PUSHDATA1 && opcode > OP_0 && (dataLen == 1 && data[0] <= 16) {
-		return false
-	}
-	if opcode == OP_PUSHDATA1 && dataLen < OP_PUSHDATA1 {
-		return false
-	}
-	if opcode == OP_PUSHDATA2 && dataLen <= 0xff {
-		return false
-	}
-	if opcode == OP_PUSHDATA4 && dataLen <= 0xffff {
-		return false
-	}
-	return true
-}
+	vm.tx = *tx
+	vm.txIdx = txIdx
 
-// removeOpcodeByData will return the script minus any opcodes that would push
-// the passed data to the stack.
-func removeOpcodeByData(pkscript []parsedOpcode, data []byte) []parsedOpcode {
-	retScript := make([]parsedOpcode, 0, len(pkscript))
-	for _, pop := range pkscript {
-		if !canonicalPush(pop) || !bytes.Contains(pop.data, data) {
-			retScript = append(retScript, pop)
-		}
-	}
-	return retScript
-
-}
-
-// calcHashPrevOuts calculates a single hash of all the previous outputs
-// (txid:index) referenced within the passed transaction. This calculated hash
-// can be re-used when validating all inputs spending segwit outputs, with a
-// signature hash type of SigHashAll. This allows validation to re-use previous
-// hashing computation, reducing the complexity of validating SigHashAll inputs
-// from  O(N^2) to O(N).
-func calcHashPrevOuts(tx *wire.MsgTx) chainhash.Hash {
-	var b bytes.Buffer
-	for _, in := range tx.TxIn {
-		// First write out the 32-byte transaction ID one of whose
-		// outputs are being referenced by this input.
-		b.Write(in.PreviousOutPoint.Hash[:])
-
-		// Next, we'll encode the index of the referenced output as a
-		// little endian integer.
-		var buf [4]byte
-		binary.LittleEndian.PutUint32(buf[:], in.PreviousOutPoint.Index)
-		b.Write(buf[:])
-	}
-
-	return chainhash.DoubleHashH(b.Bytes())
-}
-
-// calcHashSequence computes an aggregated hash of each of the sequence numbers
-// within the inputs of the passed transaction. This single hash can be re-used
-// when validating all inputs spending segwit outputs, which include signatures
-// using the SigHashAll sighash type. This allows validation to re-use previous
-// hashing computation, reducing the complexity of validating SigHashAll inputs
-// from O(N^2) to O(N).
-func calcHashSequence(tx *wire.MsgTx) chainhash.Hash {
-	var b bytes.Buffer
-	for _, in := range tx.TxIn {
-		var buf [4]byte
-		binary.LittleEndian.PutUint32(buf[:], in.Sequence)
-		b.Write(buf[:])
-	}
-
-	return chainhash.DoubleHashH(b.Bytes())
-}
-
-// calcHashOutputs computes a hash digest of all outputs created by the
-// transaction encoded using the wire format. This single hash can be re-used
-// when validating all inputs spending witness programs, which include
-// signatures using the SigHashAll sighash type. This allows computation to be
-// cached, reducing the total hashing complexity from O(N^2) to O(N).
-func calcHashOutputs(tx *wire.MsgTx) chainhash.Hash {
-	var b bytes.Buffer
-	for _, out := range tx.TxOut {
-		wire.WriteTxOut(&b, 0, 0, out)
-	}
-
-	return chainhash.DoubleHashH(b.Bytes())
-}
-
-// calcWitnessSignatureHash computes the sighash digest of a transaction's
-// segwit input using the new, optimized digest calculation algorithm defined
-// in BIP0143: https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki.
-// This function makes use of pre-calculated sighash fragments stored within
-// the passed HashCache to eliminate duplicate hashing computations when
-// calculating the final digest, reducing the complexity from O(N^2) to O(N).
-// Additionally, signatures now cover the input value of the referenced unspent
-// output. This allows offline, or hardware wallets to compute the exact amount
-// being spent, in addition to the final transaction fee. In the case the
-// wallet if fed an invalid input amount, the real sighash will differ causing
-// the produced signature to be invalid.
-func calcWitnessSignatureHash(subScript []parsedOpcode, sigHashes *TxSigHashes,
-	hashType SigHashType, tx *wire.MsgTx, idx int, amt int64) ([]byte, error) {
-
-	// As a sanity check, ensure the passed input index for the transaction
-	// is valid.
-	if idx > len(tx.TxIn)-1 {
-		return nil, fmt.Errorf("idx %d but %d txins", idx, len(tx.TxIn))
-	}
-
-	// We'll utilize this buffer throughout to incrementally calculate
-	// the signature hash for this transaction.
-	var sigHash bytes.Buffer
-
-	// First write out, then encode the transaction's version number.
-	var bVersion [4]byte
-	binary.LittleEndian.PutUint32(bVersion[:], uint32(tx.Version))
-	sigHash.Write(bVersion[:])
-
-	// Next write out the possibly pre-calculated hashes for the sequence
-	// numbers of all inputs, and the hashes of the previous outs for all
-	// outputs.
-	var zeroHash chainhash.Hash
-
-	// If anyone can pay isn't active, then we can use the cached
-	// hashPrevOuts, otherwise we just write zeroes for the prev outs.
-	if hashType&SigHashAnyOneCanPay == 0 {
-		sigHash.Write(sigHashes.HashPrevOuts[:])
-	} else {
-		sigHash.Write(zeroHash[:])
-	}
-
-	// If the sighash isn't anyone can pay, single, or none, the use the
-	// cached hash sequences, otherwise write all zeroes for the
-	// hashSequence.
-	if hashType&SigHashAnyOneCanPay == 0 &&
-		hashType&sigHashMask != SigHashSingle &&
-		hashType&sigHashMask != SigHashNone {
-		sigHash.Write(sigHashes.HashSequence[:])
-	} else {
-		sigHash.Write(zeroHash[:])
-	}
-
-	txIn := tx.TxIn[idx]
-
-	// Next, write the outpoint being spent.
-	sigHash.Write(txIn.PreviousOutPoint.Hash[:])
-	var bIndex [4]byte
-	binary.LittleEndian.PutUint32(bIndex[:], txIn.PreviousOutPoint.Index)
-	sigHash.Write(bIndex[:])
-
-	if isWitnessPubKeyHash(subScript) {
-		// The script code for a p2wkh is a length prefix varint for
-		// the next 25 bytes, followed by a re-creation of the original
-		// p2pkh pk script.
-		sigHash.Write([]byte{0x19})
-		sigHash.Write([]byte{OP_DUP})
-		sigHash.Write([]byte{OP_HASH160})
-		sigHash.Write([]byte{OP_DATA_20})
-		sigHash.Write(subScript[1].data)
-		sigHash.Write([]byte{OP_EQUALVERIFY})
-		sigHash.Write([]byte{OP_CHECKSIG})
-	} else {
-		// For p2wsh outputs, and future outputs, the script code is
-		// the original script, with all code separators removed,
-		// serialized with a var int length prefix.
-		rawScript, _ := unparseScript(subScript)
-		wire.WriteVarBytes(&sigHash, 0, rawScript)
-	}
-
-	// Next, add the input amount, and sequence number of the input being
-	// signed.
-	var bAmount [8]byte
-	binary.LittleEndian.PutUint64(bAmount[:], uint64(amt))
-	sigHash.Write(bAmount[:])
-	var bSequence [4]byte
-	binary.LittleEndian.PutUint32(bSequence[:], txIn.Sequence)
-	sigHash.Write(bSequence[:])
-
-	// If the current signature mode isn't single, or none, then we can
-	// re-use the pre-generated hashoutputs sighash fragment. Otherwise,
-	// we'll serialize and add only the target output index to the signature
-	// pre-image.
-	if hashType&SigHashSingle != SigHashSingle &&
-		hashType&SigHashNone != SigHashNone {
-		sigHash.Write(sigHashes.HashOutputs[:])
-	} else if hashType&sigHashMask == SigHashSingle && idx < len(tx.TxOut) {
-		var b bytes.Buffer
-		wire.WriteTxOut(&b, 0, 0, tx.TxOut[idx])
-		sigHash.Write(chainhash.DoubleHashB(b.Bytes()))
-	} else {
-		sigHash.Write(zeroHash[:])
-	}
-
-	// Finally, write out the transaction's locktime, and the sig hash
-	// type.
-	var bLockTime [4]byte
-	binary.LittleEndian.PutUint32(bLockTime[:], tx.LockTime)
-	sigHash.Write(bLockTime[:])
-	var bHashType [4]byte
-	binary.LittleEndian.PutUint32(bHashType[:], uint32(hashType))
-	sigHash.Write(bHashType[:])
-
-	return chainhash.DoubleHashB(sigHash.Bytes()), nil
-}
-
-// CalcWitnessSigHash computes the sighash digest for the specified input of
-// the target transaction observing the desired sig hash type.
-func CalcWitnessSigHash(script []byte, sigHashes *TxSigHashes, hType SigHashType,
-	tx *wire.MsgTx, idx int, amt int64) ([]byte, error) {
-
-	parsedScript, err := parseScript(script)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse output script: %v", err)
-	}
-
-	return calcWitnessSignatureHash(parsedScript, sigHashes, hType, tx, idx,
-		amt)
-}
-
-// shallowCopyTx creates a shallow copy of the transaction for use when
-// calculating the signature hash.  It is used over the Copy method on the
-// transaction itself since that is a deep copy and therefore does more work and
-// allocates much more space than needed.
-func shallowCopyTx(tx *wire.MsgTx) wire.MsgTx {
-	// As an additional memory optimization, use contiguous backing arrays
-	// for the copied inputs and outputs and point the final slice of
-	// pointers into the contiguous arrays.  This avoids a lot of small
-	// allocations.
-	txCopy := wire.MsgTx{
-		Version:  tx.Version,
-		TxIn:     make([]*wire.TxIn, len(tx.TxIn)),
-		TxOut:    make([]*wire.TxOut, len(tx.TxOut)),
-		LockTime: tx.LockTime,
-	}
-	txIns := make([]wire.TxIn, len(tx.TxIn))
-	for i, oldTxIn := range tx.TxIn {
-		txIns[i] = *oldTxIn
-		txCopy.TxIn[i] = &txIns[i]
-	}
-	txOuts := make([]wire.TxOut, len(tx.TxOut))
-	for i, oldTxOut := range tx.TxOut {
-		txOuts[i] = *oldTxOut
-		txCopy.TxOut[i] = &txOuts[i]
-	}
-	return txCopy
-}
-
-// calcSignatureHash will, given a script and hash type for the current script
-// engine instance, calculate the signature hash to be used for signing and
-// verification.
-func calcSignatureHash(script []parsedOpcode, hashType SigHashType, tx *wire.MsgTx, idx int) []byte {
-	// The SigHashSingle signature type signs only the corresponding input
-	// and output (the output with the same index number as the input).
-	//
-	// Since transactions can have more inputs than outputs, this means it
-	// is improper to use SigHashSingle on input indices that don't have a
-	// corresponding output.
-	//
-	// A bug in the original Satoshi client implementation means specifying
-	// an index that is out of range results in a signature hash of 1 (as a
-	// uint256 little endian).  The original intent appeared to be to
-	// indicate failure, but unfortunately, it was never checked and thus is
-	// treated as the actual signature hash.  This buggy behavior is now
-	// part of the consensus and a hard fork would be required to fix it.
-	//
-	// Due to this, care must be taken by software that creates transactions
-	// which make use of SigHashSingle because it can lead to an extremely
-	// dangerous situation where the invalid inputs will end up signing a
-	// hash of 1.  This in turn presents an opportunity for attackers to
-	// cleverly construct transactions which can steal those coins provided
-	// they can reuse signatures.
-	if hashType&sigHashMask == SigHashSingle && idx >= len(tx.TxOut) {
-		var hash chainhash.Hash
-		hash[0] = 0x01
-		return hash[:]
-	}
-
-	// Remove all instances of OP_CODESEPARATOR from the script.
-	script = removeOpcode(script, OP_CODESEPARATOR)
-
-	// Make a shallow copy of the transaction, zeroing out the script for
-	// all inputs that are not currently being processed.
-	txCopy := shallowCopyTx(tx)
-	for i := range txCopy.TxIn {
-		if i == idx {
-			// UnparseScript cannot fail here because removeOpcode
-			// above only returns a valid script.
-			sigScript, _ := unparseScript(script)
-			txCopy.TxIn[idx].SignatureScript = sigScript
-		} else {
-			txCopy.TxIn[i].SignatureScript = nil
-		}
-	}
-
-	switch hashType & sigHashMask {
-	case SigHashNone:
-		txCopy.TxOut = txCopy.TxOut[0:0] // Empty slice.
-		for i := range txCopy.TxIn {
-			if i != idx {
-				txCopy.TxIn[i].Sequence = 0
-			}
-		}
-
-	case SigHashSingle:
-		// Resize output array to up to and including requested index.
-		txCopy.TxOut = txCopy.TxOut[:idx+1]
-
-		// All but current output get zeroed out.
-		for i := 0; i < idx; i++ {
-			txCopy.TxOut[i].Value = -1
-			txCopy.TxOut[i].PkScript = nil
-		}
-
-		// Sequence on all other inputs is 0, too.
-		for i := range txCopy.TxIn {
-			if i != idx {
-				txCopy.TxIn[i].Sequence = 0
-			}
-		}
-
-	default:
-		// Consensus treats undefined hashtypes like normal SigHashAll
-		// for purposes of hash generation.
-		fallthrough
-	case SigHashOld:
-		fallthrough
-	case SigHashAll:
-		// Nothing special here.
-	}
-	if hashType&SigHashAnyOneCanPay != 0 {
-		txCopy.TxIn = txCopy.TxIn[idx : idx+1]
-	}
-
-	// The final hash is the double sha256 of both the serialized modified
-	// transaction and the hash type (encoded as a 4-byte little-endian
-	// value) appended.
-	wbuf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSizeStripped()+4))
-	txCopy.SerializeNoWitness(wbuf)
-	binary.Write(wbuf, binary.LittleEndian, hashType)
-	return chainhash.DoubleHashB(wbuf.Bytes())
-}
-
-// asSmallInt returns the passed opcode, which must be true according to
-// isSmallInt(), as an integer.
-func asSmallInt(op *opcode) int {
-	if op.value == OP_0 {
-		return 0
-	}
-
-	return int(op.value - (OP_1 - 1))
-}
-
-// getSigOpCount is the implementation function for counting the number of
-// signature operations in the script provided by pops. If precise mode is
-// requested then we attempt to count the number of operations for a multisig
-// op. Otherwise we use the maximum.
-func getSigOpCount(pops []parsedOpcode, precise bool) int {
-	nSigs := 0
-	for i, pop := range pops {
-		switch pop.opcode.value {
-		case OP_CHECKSIG:
-			fallthrough
-		case OP_CHECKSIGVERIFY:
-			nSigs++
-		case OP_CHECKMULTISIG:
-			fallthrough
-		case OP_CHECKMULTISIGVERIFY:
-			// If we are being precise then look for familiar
-			// patterns for multisig, for now all we recognize is
-			// OP_1 - OP_16 to signify the number of pubkeys.
-			// Otherwise, we use the max of 20.
-			if precise && i > 0 &&
-				pops[i-1].opcode.value >= OP_1 &&
-				pops[i-1].opcode.value <= OP_16 {
-				nSigs += asSmallInt(pops[i-1].opcode)
-			} else {
-				nSigs += MaxPubKeysPerMultiSig
-			}
-		default:
-			// Not a sigop.
-		}
-	}
-
-	return nSigs
-}
-
-// GetSigOpCount provides a quick count of the number of signature operations
-// in a script. a CHECKSIG operations counts for 1, and a CHECK_MULTISIG for 20.
-// If the script fails to parse, then the count up to the point of failure is
-// returned.
-func GetSigOpCount(script []byte) int {
-	// Don't check error since parseScript returns the parsed-up-to-error
-	// list of pops.
-	pops, _ := parseScript(script)
-	return getSigOpCount(pops, false)
-}
-
-// GetPreciseSigOpCount returns the number of signature operations in
-// scriptPubKey.  If bip16 is true then scriptSig may be searched for the
-// Pay-To-Script-Hash script in order to find the precise number of signature
-// operations in the transaction.  If the script fails to parse, then the count
-// up to the point of failure is returned.
-func GetPreciseSigOpCount(scriptSig, scriptPubKey []byte, bip16 bool) int {
-	// Don't check error since parseScript returns the parsed-up-to-error
-	// list of pops.
-	pops, _ := parseScript(scriptPubKey)
-
-	// Treat non P2SH transactions as normal.
-	if !(bip16 && isScriptHash(pops)) {
-		return getSigOpCount(pops, true)
-	}
-
-	// The public key script is a pay-to-script-hash, so parse the signature
-	// script to get the final item.  Scripts that fail to fully parse count
-	// as 0 signature operations.
-	sigPops, err := parseScript(scriptSig)
-	if err != nil {
-		return 0
-	}
-
-	// The signature script must only push data to the stack for P2SH to be
-	// a valid pair, so the signature operation count is 0 when that is not
-	// the case.
-	if !isPushOnly(sigPops) || len(sigPops) == 0 {
-		return 0
-	}
-
-	// The P2SH script is the last item the signature script pushes to the
-	// stack.  When the script is empty, there are no signature operations.
-	shScript := sigPops[len(sigPops)-1].data
-	if len(shScript) == 0 {
-		return 0
-	}
-
-	// Parse the P2SH script and don't check the error since parseScript
-	// returns the parsed-up-to-error list of pops and the consensus rules
-	// dictate signature operations are counted up to the first parse
-	// failure.
-	shPops, _ := parseScript(shScript)
-	return getSigOpCount(shPops, true)
-}
-
-// GetWitnessSigOpCount returns the number of signature operations generated by
-// spending the passed pkScript with the specified witness, or sigScript.
-// Unlike GetPreciseSigOpCount, this function is able to accurately count the
-// number of signature operations generated by spending witness programs, and
-// nested p2sh witness programs. If the script fails to parse, then the count
-// up to the point of failure is returned.
-func GetWitnessSigOpCount(sigScript, pkScript []byte, witness wire.TxWitness) int {
-	// If this is a regular witness program, then we can proceed directly
-	// to counting its signature operations without any further processing.
-	if IsWitnessProgram(pkScript) {
-		return getWitnessSigOps(pkScript, witness)
-	}
-
-	// Next, we'll check the sigScript to see if this is a nested p2sh
-	// witness program. This is a case wherein the sigScript is actually a
-	// datapush of a p2wsh witness program.
-	sigPops, err := parseScript(sigScript)
-	if err != nil {
-		return 0
-	}
-	if IsPayToScriptHash(pkScript) && isPushOnly(sigPops) &&
-		IsWitnessProgram(sigScript[1:]) {
-		return getWitnessSigOps(sigScript[1:], witness)
-	}
-
-	return 0
-}
-
-// getWitnessSigOps returns the number of signature operations generated by
-// spending the passed witness program wit the passed witness. The exact
-// signature counting heuristic is modified by the version of the passed
-// witness program. If the version of the witness program is unable to be
-// extracted, then 0 is returned for the sig op count.
-func getWitnessSigOps(pkScript []byte, witness wire.TxWitness) int {
-	// Attempt to extract the witness program version.
-	witnessVersion, witnessProgram, err := ExtractWitnessProgramInfo(
-		pkScript,
-	)
-	if err != nil {
-		return 0
-	}
-
-	switch witnessVersion {
-	case 0:
-		switch {
-		case len(witnessProgram) == payToWitnessPubKeyHashDataSize:
-			return 1
-		case len(witnessProgram) == payToWitnessScriptHashDataSize &&
-			len(witness) > 0:
-
-			witnessScript := witness[len(witness)-1]
-			pops, _ := parseScript(witnessScript)
-			return getSigOpCount(pops, true)
-		}
-	}
-
-	return 0
-}
-
-// IsUnspendable returns whether the passed public key script is unspendable, or
-// guaranteed to fail at execution.  This allows inputs to be pruned instantly
-// when entering the UTXO set.
-func IsUnspendable(pkScript []byte) bool {
-	pops, err := parseScript(pkScript)
-	if err != nil {
-		return true
-	}
-
-	return len(pops) > 0 && pops[0].opcode.value == OP_RETURN
+	return &vm, nil
 }

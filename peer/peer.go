@@ -30,9 +30,9 @@ const (
 	MaxProtocolVersion = wire.FeeFilterVersion
 
 	// minAcceptableProtocolVersion is the lowest protocol version that a
-	// connected peer may support.
-	minAcceptableProtocolVersion = wire.MultipleAddressVersion
-
+ 	// connected peer may support.
+ 	minAcceptableProtocolVersion = wire.MultipleAddressVersion
+ 
 	// outputBufferSize is the number of elements the output channels use.
 	outputBufferSize = 50
 
@@ -301,7 +301,6 @@ func newNetAddress(addr net.Addr, services wire.ServiceFlag) (*wire.NetAddress, 
 type outMsg struct {
 	msg      wire.Message
 	doneChan chan<- struct{}
-	encoding wire.MessageEncoding
 }
 
 // stallControlCmd represents the command of a stall control message.
@@ -416,9 +415,6 @@ type Peer struct {
 	protocolVersion      uint32 // negotiated protocol version
 	sendHeadersPreferred bool   // peer sent a sendheaders message
 	verAckReceived       bool
-	witnessEnabled       bool
-
-	wireEncoding wire.MessageEncoding
 
 	knownInventory     *mruInventoryMap
 	prevGetBlocksMtx   sync.Mutex
@@ -766,18 +762,6 @@ func (p *Peer) WantsHeaders() bool {
 	return sendHeadersPreferred
 }
 
-// IsWitnessEnabled returns true if the peer has signalled that it supports
-// segregated witness.
-//
-// This function is safe for concurrent access.
-func (p *Peer) IsWitnessEnabled() bool {
-	p.flagsMtx.Lock()
-	witnessEnabled := p.witnessEnabled
-	p.flagsMtx.Unlock()
-
-	return witnessEnabled
-}
-
 // localVersionMsg creates a version message that can be used to send to the
 // remote peer.
 func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
@@ -878,10 +862,10 @@ func (p *Peer) PushAddrMsg(addresses []*wire.NetAddress) ([]*wire.NetAddress, er
 	copy(msg.AddrList, addresses)
 
 	// Randomize the addresses sent if there are more than the maximum allowed.
-	if addressCount > wire.MaxAddrPerMsg {
+	if len(msg.AddrList) > wire.MaxAddrPerMsg {
 		// Shuffle the address list.
-		for i := 0; i < wire.MaxAddrPerMsg; i++ {
-			j := i + rand.Intn(addressCount-i)
+		for i := range msg.AddrList {
+ 			j := rand.Intn(i + 1)
 			msg.AddrList[i], msg.AddrList[j] = msg.AddrList[j], msg.AddrList[i]
 		}
 
@@ -1030,20 +1014,20 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 	// Notify and disconnect clients that have a protocol version that is
 	// too old.
 	//
-	// NOTE: If minAcceptableProtocolVersion is raised to be higher than
-	// wire.RejectVersion, this should send a reject packet before
-	// disconnecting.
-	if uint32(msg.ProtocolVersion) < minAcceptableProtocolVersion {
+ 	// NOTE: If minAcceptableProtocolVersion is raised to be higher than
+ 	// wire.RejectVersion, this should send a reject packet before
+ 	// disconnecting.
+ 	if uint32(msg.ProtocolVersion) < minAcceptableProtocolVersion {
 		reason := fmt.Sprintf("protocol version must be %d or greater",
 			minAcceptableProtocolVersion)
-		return errors.New(reason)
+ 		return errors.New(reason)
 	}
 
-	// Updating a bunch of stats including block based stats, and the
-	// peer's time offset.
+	// Updating a bunch of stats.
 	p.statsMtx.Lock()
 	p.lastBlock = msg.LastBlock
 	p.startingHeight = msg.LastBlock
+	// Set the peer's time offset.
 	p.timeOffset = msg.Timestamp.Unix() - time.Now().Unix()
 	p.statsMtx.Unlock()
 
@@ -1054,33 +1038,14 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 	p.versionKnown = true
 	log.Debugf("Negotiated protocol version %d for peer %s",
 		p.protocolVersion, p)
-
 	// Set the peer's ID.
 	p.id = atomic.AddInt32(&nodeCount, 1)
-
 	// Set the supported services for the peer to what the remote peer
 	// advertised.
 	p.services = msg.Services
-
 	// Set the remote peer's user agent.
 	p.userAgent = msg.UserAgent
-
-	// Determine if the peer would like to receive witness data with
-	// transactions, or not.
-	if p.services&wire.SFNodeWitness == wire.SFNodeWitness {
-		p.witnessEnabled = true
-	}
 	p.flagsMtx.Unlock()
-
-	// Once the version message has been exchanged, we're able to determine
-	// if this peer knows how to encode witness data over the wire
-	// protocol. If so, then we'll switch to a decoding mode which is
-	// prepared for the new transaction format introduced as part of
-	// BIP0144.
-	if p.services&wire.SFNodeWitness == wire.SFNodeWitness {
-		p.wireEncoding = wire.WitnessEncoding
-	}
-
 	return nil
 }
 
@@ -1120,9 +1085,9 @@ func (p *Peer) handlePongMsg(msg *wire.MsgPong) {
 }
 
 // readMessage reads the next bitcoin message from the peer with logging.
-func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte, error) {
-	n, msg, buf, err := wire.ReadMessageWithEncodingN(p.conn,
-		p.ProtocolVersion(), p.cfg.ChainParams.Net, encoding)
+func (p *Peer) readMessage() (wire.Message, []byte, error) {
+	n, msg, buf, err := wire.ReadMessageN(p.conn, p.ProtocolVersion(),
+		p.cfg.ChainParams.Net)
 	atomic.AddUint64(&p.bytesReceived, uint64(n))
 	if p.cfg.Listeners.OnRead != nil {
 		p.cfg.Listeners.OnRead(p, n, msg, err)
@@ -1153,7 +1118,7 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 }
 
 // writeMessage sends a bitcoin message to the peer with logging.
-func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
+func (p *Peer) writeMessage(msg wire.Message) error {
 	// Don't do anything if we're disconnecting.
 	if atomic.LoadInt32(&p.disconnect) != 0 {
 		return nil
@@ -1175,8 +1140,8 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 	}))
 	log.Tracef("%v", newLogClosure(func() string {
 		var buf bytes.Buffer
-		_, err := wire.WriteMessageWithEncodingN(&buf, msg, p.ProtocolVersion(),
-			p.cfg.ChainParams.Net, enc)
+		err := wire.WriteMessage(&buf, msg, p.ProtocolVersion(),
+			p.cfg.ChainParams.Net)
 		if err != nil {
 			return err.Error()
 		}
@@ -1184,8 +1149,8 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 	}))
 
 	// Write the message to the peer.
-	n, err := wire.WriteMessageWithEncodingN(p.conn, msg,
-		p.ProtocolVersion(), p.cfg.ChainParams.Net, enc)
+	n, err := wire.WriteMessageN(p.conn, msg, p.ProtocolVersion(),
+		p.cfg.ChainParams.Net)
 	atomic.AddUint64(&p.bytesSent, uint64(n))
 	if p.cfg.Listeners.OnWrite != nil {
 		p.cfg.Listeners.OnWrite(p, n, msg, err)
@@ -1435,7 +1400,7 @@ cleanup:
 // goroutine.
 func (p *Peer) inHandler() {
 	// The timer is stopped when a new message is received and reset after it
-	// is processed.
+ 	// is processed.
 	idleTimer := time.AfterFunc(idleTimeout, func() {
 		log.Warnf("Peer %s no answer for %s -- disconnecting", p, idleTimeout)
 		p.Disconnect()
@@ -1446,7 +1411,7 @@ out:
 		// Read a message and stop the idle timer as soon as the read
 		// is done.  The timer is reset below for the next iteration if
 		// needed.
-		rmsg, buf, err := p.readMessage(p.wireEncoding)
+		rmsg, buf, err := p.readMessage()
 		idleTimer.Stop()
 		if err != nil {
 			// In order to allow regression tests with malformed messages, don't
@@ -1806,9 +1771,7 @@ out:
 			}
 
 			p.stallControl <- stallControlMsg{sccSendMessage, msg.msg}
-
-			err := p.writeMessage(msg.msg, msg.encoding)
-			if err != nil {
+			if err := p.writeMessage(msg.msg); err != nil {
 				p.Disconnect()
 				if p.shouldLogWriteError(err) {
 					log.Errorf("Failed to send message to "+
@@ -1884,18 +1847,6 @@ out:
 //
 // This function is safe for concurrent access.
 func (p *Peer) QueueMessage(msg wire.Message, doneChan chan<- struct{}) {
-	p.QueueMessageWithEncoding(msg, doneChan, wire.BaseEncoding)
-}
-
-// QueueMessageWithEncoding adds the passed bitcoin message to the peer send
-// queue. This function is identical to QueueMessage, however it allows the
-// caller to specify the wire encoding type that should be used when
-// encoding/decoding blocks and transactions.
-//
-// This function is safe for concurrent access.
-func (p *Peer) QueueMessageWithEncoding(msg wire.Message, doneChan chan<- struct{},
-	encoding wire.MessageEncoding) {
-
 	// Avoid risk of deadlock if goroutine already exited.  The goroutine
 	// we will be sending to hangs around until it knows for a fact that
 	// it is marked as disconnected and *then* it drains the channels.
@@ -1907,7 +1858,7 @@ func (p *Peer) QueueMessageWithEncoding(msg wire.Message, doneChan chan<- struct
 		}
 		return
 	}
-	p.outputQueue <- outMsg{msg: msg, encoding: encoding, doneChan: doneChan}
+	p.outputQueue <- outMsg{msg: msg, doneChan: doneChan}
 }
 
 // QueueInventory adds the passed inventory to the inventory send queue which
@@ -2039,7 +1990,7 @@ func (p *Peer) WaitForDisconnect() {
 // acceptable then return an error.
 func (p *Peer) readRemoteVersionMsg() error {
 	// Read their version message.
-	msg, _, err := p.readMessage(wire.LatestEncoding)
+	msg, _, err := p.readMessage()
 	if err != nil {
 		return err
 	}
@@ -2051,7 +2002,7 @@ func (p *Peer) readRemoteVersionMsg() error {
 
 		rejectMsg := wire.NewMsgReject(msg.Command(), wire.RejectMalformed,
 			errStr)
-		return p.writeMessage(rejectMsg, wire.LatestEncoding)
+		return p.writeMessage(rejectMsg)
 	}
 
 	if err := p.handleRemoteVersionMsg(remoteVerMsg); err != nil {
@@ -2071,7 +2022,7 @@ func (p *Peer) writeLocalVersionMsg() error {
 		return err
 	}
 
-	return p.writeMessage(localVerMsg, wire.LatestEncoding)
+	return p.writeMessage(localVerMsg)
 }
 
 // negotiateInboundProtocol waits to receive a version message from the peer
@@ -2114,7 +2065,6 @@ func newPeerBase(origCfg *Config, inbound bool) *Peer {
 
 	p := Peer{
 		inbound:         inbound,
-		wireEncoding:    wire.BaseEncoding,
 		knownInventory:  newMruInventoryMap(maxKnownInventory),
 		stallControl:    make(chan stallControlMsg, 1), // nonblocking sync
 		outputQueue:     make(chan outMsg, outputBufferSize),

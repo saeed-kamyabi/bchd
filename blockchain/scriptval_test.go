@@ -1,14 +1,15 @@
-// Copyright (c) 2013-2017 The bchsuite developers
+// Copyright (c) 2013-2016 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
-package blockchain
+package blockchain_test
 
 import (
 	"fmt"
 	"runtime"
 	"testing"
 
+	"github.com/bchsuite/bchd/blockchain"
 	"github.com/bchsuite/bchd/txscript"
 )
 
@@ -41,7 +42,8 @@ func TestCheckBlockScripts(t *testing.T) {
 	}
 
 	scriptFlags := txscript.ScriptBip16
-	err = checkBlockScripts(blocks[0], view, scriptFlags nil)
+	err = blockchain.TstCheckBlockScripts(blocks[0], view, scriptFlags,
+		nil)
 	if err != nil {
 		t.Errorf("Transaction script validation failed: %v\n", err)
 		return

@@ -322,11 +322,9 @@ func (v *Vin) MarshalJSON() ([]byte, error) {
 		coinbaseStruct := struct {
 			Coinbase string   `json:"coinbase"`
 			Sequence uint32   `json:"sequence"`
-			Witness  []string `json:"witness,omitempty"`
 		}{
 			Coinbase: v.Coinbase,
 			Sequence: v.Sequence,
-			Witness:  v.Witness,
 		}
 		return json.Marshal(coinbaseStruct)
 	}
@@ -357,7 +355,6 @@ type VinPrevOut struct {
 	Txid      string     `json:"txid"`
 	Vout      uint32     `json:"vout"`
 	ScriptSig *ScriptSig `json:"scriptSig"`
-	Witness   []string   `json:"txinwitness"`
 	PrevOut   *PrevOut   `json:"prevOut"`
 	Sequence  uint32     `json:"sequence"`
 }

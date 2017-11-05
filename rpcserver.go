@@ -2002,12 +2002,6 @@ func chainErrToGBTErrString(err error) string {
 		return "bad-script-malformed"
 	case blockchain.ErrScriptValidation:
 		return "bad-script-validate"
-	case blockchain.ErrUnexpectedWitness:
-		return "unexpected-witness"
-	case blockchain.ErrInvalidWitnessCommitment:
-		return "bad-witness-nonce-size"
-	case blockchain.ErrWitnessCommitmentMismatch:
-		return "bad-witness-merkle-match"
 	case blockchain.ErrPreviousBlockUnknown:
 		return "prev-blk-not-found"
 	case blockchain.ErrInvalidAncestorBlock:

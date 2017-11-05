@@ -1,19 +1,20 @@
-// Copyright (c) 2013-2017 The bchsuite developers
+// Copyright (c) 2013-2014 The bchsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
-package blockchain
+package blockchain_test
 
 import (
 	"testing"
 
+	"github.com/bchsuite/bchd/blockchain"
 	"github.com/bchsuite/bchutil"
 )
 
 // TestMerkle tests the BuildMerkleTreeStore API.
 func TestMerkle(t *testing.T) {
 	block := bchutil.NewBlock(&Block100000)
-	merkles := BuildMerkleTreeStore(block.Transactions(), false)
+	merkles := blockchain.BuildMerkleTreeStore(block.Transactions())
 	calculatedMerkleRoot := merkles[len(merkles)-1]
 	wantMerkle := &Block100000.Header.MerkleRoot
 	if !wantMerkle.IsEqual(calculatedMerkleRoot) {

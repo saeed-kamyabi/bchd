@@ -31,6 +31,7 @@ type txValidator struct {
 	utxoView     *UtxoViewpoint
 	flags        txscript.ScriptFlags
 	sigCache     *txscript.SigCache
+}
 
 // sendResult sends the result of a script pair validation on the internal
 // result channel while respecting the quit channel.  This allows orderly
@@ -82,16 +83,15 @@ out:
 
 			// Create a new script engine for the script pair.
 			sigScript := txIn.SignatureScript
-			inputAmount := txEntry.AmountByIndex(originTxIndex)
 			vm, err := txscript.NewEngine(pkScript, txVI.tx.MsgTx(),
 				txVI.txInIndex, v.flags, v.sigCache)
 			if err != nil {
 				str := fmt.Sprintf("failed to parse input "+
 					"%s:%d which references output %s:%d - "+
- 					"%v (input script bytes %x, prev output "+
-  					"script bytes %x)", txVI.tx.Hash(),
-  					txVI.txInIndex, originTxHash,
-  					originTxIndex, err, sigScript, pkScript)
+					"%v (input script bytes %x, prev output "+
+					"script bytes %x)", txVI.tx.Hash(),
+					txVI.txInIndex, originTxHash,
+					originTxIndex, err, sigScript, pkScript)
 				err := ruleError(ErrScriptMalformed, str)
 				v.sendResult(err)
 				break out
@@ -101,11 +101,10 @@ out:
 			if err := vm.Execute(); err != nil {
 				str := fmt.Sprintf("failed to validate input "+
 					"%s:%d which references output %s:%d - "+
- 					"%v (input witness %x, input script "+
-  					"bytes %x, prev output script bytes %x)",
-  					txVI.tx.Hash(), txVI.txInIndex,
-  					originTxHash, originTxIndex, err,
-  					witness, sigScript, pkScript)
+					"%v (input script bytes %x, prev output "+
+					"script bytes %x)", txVI.tx.Hash(),
+					txVI.txInIndex, originTxHash,
+					originTxIndex, err, sigScript, pkScript)
 				err := ruleError(ErrScriptValidation, str)
 				v.sendResult(err)
 				break out
@@ -238,7 +237,6 @@ func checkBlockScripts(block *bchutil.Block, utxoView *UtxoViewpoint, scriptFlag
 				txInIndex: txInIdx,
 				txIn:      txIn,
 				tx:        tx,
-				sigHashes: cachedHashes,
 			}
 			txValItems = append(txValItems, txVI)
 		}
@@ -246,5 +244,5 @@ func checkBlockScripts(block *bchutil.Block, utxoView *UtxoViewpoint, scriptFlag
 
 	// Validate all of the inputs.
 	validator := newTxValidator(utxoView, scriptFlags, sigCache)
- 	return validator.Validate(txValItems)
+	return validator.Validate(txValItems)
 }
