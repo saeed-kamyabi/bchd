@@ -486,12 +486,11 @@ func checkBlockSanity(block *bchutil.Block, powLimit *big.Int, timeSource Median
 			"any transactions")
 	}
 
-	// A block must not have more transactions than the max block payload or
-	// else it is certainly over the weight limit.
-	if numTx > MaxBlockBaseSize {
+	// A block must not have more transactions than the max block payload.
+	if numTx > wire.MaxBlockPayload {
 		str := fmt.Sprintf("block contains too many transactions - "+
-			"got %d, max %d", numTx, MaxBlockBaseSize)
-		return ruleError(ErrBlockTooBig, str)
+			"got %d, max %d", numTx, wire.MaxBlockPayload)
+		return ruleError(ErrTooManyTransactions, str)
 	}
 
 	// A block must not exceed the maximum allowed block payload when
@@ -1045,12 +1044,12 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *bchutil.Block, vi
 		// this on every loop iteration to avoid overflow.
 		lastSigops := totalSigOps
  		totalSigOps += numsigOps
- 		if totalSigOps < lastSigops || totalSigOps > MaxSigOpsPerBlock {
-			str := fmt.Sprintf("block contains too many "+
-				"signature operations - got %v, max %v",
-				totalSigOpCost, MaxBlockSigOpsCost)
-			return ruleError(ErrTooManySigOps, str)
-		}
+                if totalSigOps < lastSigops || totalSigOps > MaxSigOpsPerBlock {
+                        str := fmt.Sprintf("block contains too many "+
+                                "signature operations - got %v, max %v",
+                                totalSigOps, MaxSigOpsPerBlock)
+                        return ruleError(ErrTooManySigOps, str)
+                }
 	}
 
 	// Perform several checks on the inputs for each transaction.  Also
