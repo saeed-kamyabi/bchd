@@ -160,8 +160,6 @@ func parseScriptFlags(flagStr string) (ScriptFlags, error) {
 			// Nothing.
 		case "NULLDUMMY":
 			flags |= ScriptStrictMultiSig
-		case "NULLFAIL":
-			flags |= ScriptVerifyNullFail
 		case "P2SH":
 			flags |= ScriptBip16
 		case "SIGPUSHONLY":
@@ -193,7 +191,7 @@ func parseExpectedResult(expected string) ([]ErrorCode, error) {
 	case "EQUALVERIFY":
 		return []ErrorCode{ErrEqualVerify}, nil
 	case "NULLFAIL":
-		return []ErrorCode{ErrNullFail}, nil
+		return []ErrorCode{ErrSigNullDummy}, nil
 	case "SIG_HIGH_S":
 		return []ErrorCode{ErrSigHighS}, nil
 	case "SIG_HASHTYPE":
