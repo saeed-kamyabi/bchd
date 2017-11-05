@@ -57,7 +57,7 @@ const (
 	blockMaxWeightMax            = blockchain.MaxBlockWeight - 4000
 	defaultGenerate              = false
 	defaultMaxOrphanTransactions = 100
-	defaultMaxOrphanTxSize       = 100000
+	defaultMaxOrphanTxSize       = mempool.MaxStandardTxSize
 	defaultSigCacheMaxSize       = 100000
 	sampleConfigFilename         = "sample-bchd.conf"
 	defaultTxIndex               = false
