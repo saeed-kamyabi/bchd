@@ -36,8 +36,8 @@ const (
 		ScriptVerifyNullFail |
 		ScriptVerifyCheckLockTimeVerify |
 		ScriptVerifyCheckSequenceVerify |
-		ScriptVerifyLowS
-                ScriptStrictMultiSig |
+		ScriptVerifyLowS |
+                ScriptStrictMultiSig
 )
 
 // ScriptClass is an enumeration for the list of standard types of script.
