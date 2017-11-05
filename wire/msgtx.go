@@ -722,7 +722,7 @@ func (msg *MsgTx) BchEncode(w io.Writer, pver uint32, enc MessageEncoding) error
 	}
 
 	for _, to := range msg.TxOut {
-		err = WriteTxOut(w, pver, msg.Version, to)
+		err = writeTxOut(w, pver, msg.Version, to)
 		if err != nil {
 			return err
 		}
@@ -996,12 +996,9 @@ func readTxOut(r io.Reader, pver uint32, version int32, to *TxOut) error {
 	return err
 }
 
-// WriteTxOut encodes to into the bitcoin protocol encoding for a transaction
+// writeTxOut encodes to into the bitcoin protocol encoding for a transaction
 // output (TxOut) to w.
-//
-// NOTE: This function is exported in order to allow txscript to compute the
-// new sighashes for witness transactions (BIP0143).
-func WriteTxOut(w io.Writer, pver uint32, version int32, to *TxOut) error {
+func writeTxOut(w io.Writer, pver uint32, version int32, to *TxOut) error {
 	err := binarySerializer.PutUint64(w, littleEndian, uint64(to.Value))
 	if err != nil {
 		return err
