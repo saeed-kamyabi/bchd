@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017 The bchsuite developers
+// Copyright (c) 2014-2017 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -16,8 +16,6 @@ func TestErrorCodeStringer(t *testing.T) {
 	}{
 		{ErrDuplicateBlock, "ErrDuplicateBlock"},
 		{ErrBlockTooBig, "ErrBlockTooBig"},
-		{ErrBlockWeightTooHigh, "ErrBlockWeightTooHigh"},
-		{ErrBlockVersionTooOld, "ErrBlockVersionTooOld"},
 		{ErrInvalidTime, "ErrInvalidTime"},
 		{ErrTimeTooOld, "ErrTimeTooOld"},
 		{ErrTimeTooNew, "ErrTimeTooNew"},
