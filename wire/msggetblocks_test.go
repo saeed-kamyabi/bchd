@@ -328,7 +328,6 @@ func TestGetBlocksWireErrors(t *testing.T) {
 		in       *MsgGetBlocks   // Value to encode
 		buf      []byte          // Wire encoding
 		pver     uint32          // Protocol version for wire encoding
-		enc      MessageEncoding // Message encoding format
 		max      int             // Max size of fixed buffer to induce errors
 		writeErr error           // Expected write error
 		readErr  error           // Expected read error

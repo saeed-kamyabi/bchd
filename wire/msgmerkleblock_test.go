@@ -146,7 +146,6 @@ func TestMerkleBlockWire(t *testing.T) {
 		out  *MsgMerkleBlock // Expected decoded message
 		buf  []byte          // Wire encoding
 		pver uint32          // Protocol version for wire encoding
-		enc  MessageEncoding // Message encoding format
 	}{
 		// Latest protocol version.
 		{
@@ -206,7 +205,6 @@ func TestMerkleBlockWireErrors(t *testing.T) {
 		in       *MsgMerkleBlock // Value to encode
 		buf      []byte          // Wire encoding
 		pver     uint32          // Protocol version for wire encoding
-		enc      MessageEncoding // Message encoding format
 		max      int             // Max size of fixed buffer to induce errors
 		writeErr error           // Expected write error
 		readErr  error           // Expected read error
@@ -347,7 +345,6 @@ func TestMerkleBlockOverflowErrors(t *testing.T) {
 	tests := []struct {
 		buf  []byte          // Wire encoding
 		pver uint32          // Protocol version for wire encoding
-		enc  MessageEncoding // Message encoding format
 		err  error           // Expected error
 	}{
 		// Block that claims to have more than max allowed hashes.

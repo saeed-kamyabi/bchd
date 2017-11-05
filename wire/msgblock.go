@@ -23,8 +23,7 @@ const defaultTransactionAlloc = 2048
 const MaxBlocksPerMsg = 500
 
 // MaxBlockPayload is the maximum bytes a block message can be in bytes.
-// After Segregated Witness, the max block payload has been raised to 4MB.
-const MaxBlockPayload = 4000000
+const MaxBlockPayload = 1000000 // Not actually 1MB which would be 1024 * 1024
 
 // maxTxPerBlock is the maximum number of transactions that could
 // possibly fit into a block.
@@ -107,6 +106,7 @@ func (msg *MsgBlock) Deserialize(r io.Reader) error {
 	// At the current time, there is no difference between the wire encoding
 	// at protocol version 0 and the stable long-term storage format.  As
 	// a result, make use of BchDecode.
+	return msg.BchDecode(r, 0)
 }
 
 // DeserializeTxLoc decodes r in the same manner Deserialize does, but it takes
@@ -194,11 +194,11 @@ func (msg *MsgBlock) Serialize(w io.Writer) error {
 	// At the current time, there is no difference between the wire encoding
 	// at protocol version 0 and the stable long-term storage format.  As
 	// a result, make use of BchEncode.
-	return msg.BtcEncode(w, 0)
+	return msg.BchEncode(w, 0)
 }
 
 // SerializeSize returns the number of bytes it would take to serialize the
-// block, factoring in any witness data within transaction.
+// the block.
 func (msg *MsgBlock) SerializeSize() int {
 	// Block header bytes + Serialized varint size for the number of
 	// transactions.
@@ -206,20 +206,6 @@ func (msg *MsgBlock) SerializeSize() int {
 
 	for _, tx := range msg.Transactions {
 		n += tx.SerializeSize()
-	}
-
-	return n
-}
-
-// SerializeSizeStripped returns the number of bytes it would take to serialize
-// the block, excluding any witness data (if any).
-func (msg *MsgBlock) SerializeSizeStripped() int {
-	// Block header bytes + Serialized varint size for the number of
-	// transactions.
-	n := blockHeaderLen + VarIntSerializeSize(uint64(len(msg.Transactions)))
-
-	for _, tx := range msg.Transactions {
-		n += tx.SerializeSizeStripped()
 	}
 
 	return n

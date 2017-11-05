@@ -175,7 +175,6 @@ func TestMsgAlertWire(t *testing.T) {
 // of MsgAlert to confirm error paths work correctly.
 func TestMsgAlertWireErrors(t *testing.T) {
 	pver := ProtocolVersion
-	encoding := BaseEncoding
 
 	baseMsgAlert := NewMsgAlert([]byte("some payload"), []byte("somesig"))
 	baseMsgAlertEncoded := []byte{

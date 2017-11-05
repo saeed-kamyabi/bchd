@@ -68,7 +68,6 @@ func TestFilterClearWire(t *testing.T) {
 		out  *MsgFilterClear // Expected decoded message
 		buf  []byte          // Wire encoding
 		pver uint32          // Protocol version for wire encoding
-		enc  MessageEncoding // Message encoding format
 	}{
 		// Latest protocol version.
 		{
@@ -76,7 +75,6 @@ func TestFilterClearWire(t *testing.T) {
 			msgFilterClear,
 			msgFilterClearEncoded,
 			ProtocolVersion,
-			BaseEncoding,
 		},
 
 		// Protocol version BIP0037Version + 1.
@@ -85,7 +83,6 @@ func TestFilterClearWire(t *testing.T) {
 			msgFilterClear,
 			msgFilterClearEncoded,
 			BIP0037Version + 1,
-			BaseEncoding,
 		},
 
 		// Protocol version BIP0037Version.
@@ -94,7 +91,6 @@ func TestFilterClearWire(t *testing.T) {
 			msgFilterClear,
 			msgFilterClearEncoded,
 			BIP0037Version,
-			BaseEncoding,
 		},
 	}
 
@@ -142,7 +138,6 @@ func TestFilterClearWireErrors(t *testing.T) {
 		in       *MsgFilterClear // Value to encode
 		buf      []byte          // Wire encoding
 		pver     uint32          // Protocol version for wire encoding
-		enc      MessageEncoding // Message encoding format
 		max      int             // Max size of fixed buffer to induce errors
 		writeErr error           // Expected write error
 		readErr  error           // Expected read error
@@ -150,7 +145,7 @@ func TestFilterClearWireErrors(t *testing.T) {
 		// Force error due to unsupported protocol version.
 		{
 			baseFilterClear, baseFilterClearEncoded,
-			pverNoFilterClear, BaseEncoding, 4, wireErr, wireErr,
+			pverNoFilterClear, 4, wireErr, wireErr,
 		},
 	}
 
