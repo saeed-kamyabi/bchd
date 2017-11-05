@@ -534,6 +534,7 @@ func addrToKey(addr bchutil.Address) ([addrKeySize]byte, error) {
 		result[0] = addrKeyTypePubKeyHash
 		copy(result[1:], addr.AddressPubKeyHash().Hash160()[:])
 		return result, nil
+	}
 
 	return [addrKeySize]byte{}, errUnsupportedAddressType
 }
