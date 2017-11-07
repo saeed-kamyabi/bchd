@@ -90,6 +90,11 @@ const (
 	// 68, 112, and 113.
 	DeploymentCSV
 
+        // DeploymentCASH defines the rule change deployment ID for the Hard fork
+        // of Bitcoin Cash.
+
+        DeploymentCASH
+
 	// NOTE: DefinedDeployments must always come last since it is used to
 	// determine how many defined deployments there currently are.
 
@@ -133,6 +138,14 @@ type Params struct {
 	BIP0034Height int32
 	BIP0065Height int32
 	BIP0066Height int32
+
+        // These fields define the block heights at which the specified hardfork
+        // became active 
+        uahfHeight int32
+
+        // These fields define the time at which the specified hardfork
+        // became active 
+        EDA0002 int32
 
 	// CoinbaseMaturity is the number of blocks required before newly mined
 	// coins (coinbase transactions) can be spent.
@@ -231,6 +244,8 @@ var MainNetParams = Params{
 	BIP0034Height:            227931, // 000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8
 	BIP0065Height:            388381, // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
 	BIP0066Height:            363725, // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
+        uahfHeight:               478559, // 000000000000000000651ef99cb9fcbe0dadde1d424bd9f15ff20136191a5eec
+        EDA0002:                  1510600000,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14, // 14 days
@@ -282,6 +297,11 @@ var MainNetParams = Params{
 			StartTime:  1462060800, // May 1st, 2016
 			ExpireTime: 1493596800, // May 1st, 2017
 		},
+		DeploymentCASH: {
+			BitNumber:  5,
+			StartTime:  1499904000, // June 13th, 2017
+			ExpireTime: 1504137600, // August 31st, 2017
+		},
 	},
 
 	// Mempool parameters
@@ -319,6 +339,8 @@ var RegressionNetParams = Params{
 	BIP0034Height:            100000000, // Not active - Permit ver 1 blocks
 	BIP0065Height:            1351,      // Used by regression tests
 	BIP0066Height:            1251,      // Used by regression tests
+        uahfHeight:               1451,      // Used by regression tests
+        EDA0002:                  1510600000,      // Used by regression tests
 	SubsidyReductionInterval: 150,
 	TargetTimespan:           time.Hour * 24 * 14, // 14 days
 	TargetTimePerBlock:       time.Minute * 10,    // 10 minutes
@@ -344,6 +366,11 @@ var RegressionNetParams = Params{
 		},
 		DeploymentCSV: {
 			BitNumber:  0,
+			StartTime:  0,             // Always available for vote
+			ExpireTime: math.MaxInt64, // Never expires
+		},
+		DeploymentCASH: {
+			BitNumber:  5,
 			StartTime:  0,             // Always available for vote
 			ExpireTime: math.MaxInt64, // Never expires
 		},
@@ -374,10 +401,11 @@ var TestNet3Params = Params{
 	Net:         wire.TestNet3,
 	DefaultPort: "18333",
 	DNSSeeds: []DNSSeed{
-		{"testnet-seed.bitcoin.jonasschnelli.ch", true},
-		{"testnet-seed.bitcoin.schildbach.de", false},
-		{"seed.tbch.petertodd.org", true},
-		{"testnet-seed.bluematt.me", false},
+		{"testnet-seed.bitcoinabc.org", true},
+		{"testnet-seed-abc.bitcoinforks.org", true},
+		{"testnet-seed.bitprim.org", true},
+		{"testnet-seed.deadalnix.me", true},
+		{"testnet-seeder.criptolayer.net", true},
 	},
 
 	// Chain parameters
@@ -388,6 +416,8 @@ var TestNet3Params = Params{
 	BIP0034Height:            21111,  // 0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8
 	BIP0065Height:            581885, // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
 	BIP0066Height:            330776, // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
+        uahfHeight:               1155876, // 00000000000e38fef93ed9582a7df43815d5c2ba9fd37ef70c9a0ea4a285b8f5
+        EDA0002:                  1510600000,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14, // 14 days
@@ -410,6 +440,8 @@ var TestNet3Params = Params{
 		{800010, newHashFromStr("000000000017ed35296433190b6829db01e657d80631d43f5983fa403bfdb4c1")},
 		{900000, newHashFromStr("0000000000356f8d8924556e765b7a94aaebc6b5c8685dcfa2b1ee8b41acd89b")},
 		{1000007, newHashFromStr("00000000001ccb893d8a1f25b70ad173ce955e5f50124261bbbc50379a612ddf")},
+                // UAHF block
+		{1155876, newHashFromStr("00000000000e38fef93ed9582a7df43815d5c2ba9fd37ef70c9a0ea4a285b8f5")},
 	},
 
 	// Consensus rule change deployments.
@@ -428,6 +460,11 @@ var TestNet3Params = Params{
 			BitNumber:  0,
 			StartTime:  1456790400, // March 1st, 2016
 			ExpireTime: 1493596800, // May 1st, 2017
+		},
+		DeploymentCASH: {
+			BitNumber:  5,
+			StartTime:  1499904000, // June 13th, 2017
+			ExpireTime: 1504137600, // August 31st, 2017
 		},
 	},
 
@@ -495,6 +532,11 @@ var SimNetParams = Params{
 		},
 		DeploymentCSV: {
 			BitNumber:  0,
+			StartTime:  0,             // Always available for vote
+			ExpireTime: math.MaxInt64, // Never expires
+		},
+		DeploymentCASH: {
+			BitNumber:  5,
 			StartTime:  0,             // Always available for vote
 			ExpireTime: math.MaxInt64, // Never expires
 		},

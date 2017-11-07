@@ -2209,6 +2209,7 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		TimeSource:   s.timeSource,
 		SigCache:     s.sigCache,
 		IndexManager: indexManager,
+                MaxBlockSize: cfg.ExcessiveBlockSize,
 	})
 	if err != nil {
 		return nil, err
@@ -2221,7 +2222,7 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 			FreeTxRelayLimit:     cfg.FreeTxRelayLimit,
 			MaxOrphanTxs:         cfg.MaxOrphanTxs,
 			MaxOrphanTxSize:      defaultMaxOrphanTxSize,
-                        MaxSigOpsPerTx:       blockchain.MaxSigOpsPerBlock / 5,
+                        MaxSigOpsPerTx:       int(blockchain.GetMaxSigOpsPerBlock(cfg.ExcessiveBlockSize) / 5),
 			MinRelayTxFee:        cfg.minRelayTxFee,
 			MaxTxVersion:         2,
 		},
@@ -2234,6 +2235,7 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		},
 		SigCache:  s.sigCache,
  		AddrIndex: s.addrIndex,
+                MaxBlockSize: cfg.ExcessiveBlockSize,
 	}
 	s.txMemPool = mempool.New(&txC)
 
@@ -2379,6 +2381,7 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 			CPUMiner:    s.cpuMiner,
 			TxIndex:     s.txIndex,
 			AddrIndex:   s.addrIndex,
+                        MaxBlockSize: cfg.ExcessiveBlockSize,
 		})
 		if err != nil {
 			return nil, err

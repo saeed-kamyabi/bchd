@@ -179,6 +179,9 @@ type BlockChain struct {
 	// certain blockchain events.
 	notificationsLock sync.RWMutex
 	notifications     []NotificationCallback
+
+        // MaxBlockSize defines the maximum block size allowed
+        MaxBlockSize uint32
 }
 
 // HaveBlock returns whether or not the chain instance has the block represented
@@ -1521,6 +1524,9 @@ type Config struct {
 	// This field can be nil if the caller does not wish to make use of an
 	// index manager.
 	IndexManager IndexManager
+
+        // MaxBlockSize defines the maximum block size allowed
+        MaxBlockSize uint32
 }
 
 // New returns a BlockChain instance using the provided configuration details.
@@ -1575,6 +1581,7 @@ func New(config *Config) (*BlockChain, error) {
 		prevOrphans:         make(map[chainhash.Hash][]*orphanBlock),
 		warningCaches:       newThresholdCaches(vbNumBits),
 		deploymentCaches:    newThresholdCaches(chaincfg.DefinedDeployments),
+                MaxBlockSize:        config.MaxBlockSize,
 	}
 
 	// Initialize the chain state from the passed database.  When the db

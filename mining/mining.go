@@ -620,7 +620,7 @@ mempoolLoop:
 		// for overflow.
 		numSigOps := int64(blockchain.CountSigOps(tx))
 		if blockSigOps+numSigOps < blockSigOps ||
-			blockSigOps+numSigOps > blockchain.MaxSigOpsPerBlock {
+			blockSigOps+numSigOps > int64(blockchain.GetMaxSigOpsPerBlock(g.policy.BlockMaxSize)) {
 			log.Tracef("Skipping tx %s because it would exceed "+
 				"the maximum sigops per block", tx.Hash())
 			logSkippedDeps(tx, deps)
@@ -636,7 +636,7 @@ mempoolLoop:
 		}
 		numSigOps += int64(numP2SHSigOps)
 		if blockSigOps+numSigOps < blockSigOps ||
-			blockSigOps+numSigOps > blockchain.MaxSigOpsPerBlock {
+			blockSigOps+numSigOps > int64(blockchain.GetMaxSigOpsPerBlock(g.policy.BlockMaxSize)) {
 			log.Tracef("Skipping tx %s because it would exceed "+
 				"the maximum sigops per block (p2sh)",
 				tx.Hash())

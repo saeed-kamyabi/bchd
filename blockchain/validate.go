@@ -19,10 +19,6 @@ import (
 )
 
 const (
- 	// MaxSigOpsPerBlock is the maximum number of signature operations
-  	// allowed for a block.  It is a fraction of the max block payload size.
-  	MaxSigOpsPerBlock = wire.MaxBlockPayload / 50
-  
 	// MaxTimeOffsetSeconds is the maximum number of seconds a block time
 	// is allowed to be ahead of the current time.  This is currently 2
 	// hours.
@@ -206,7 +202,7 @@ func CalcBlockSubsidy(height int32, chainParams *chaincfg.Params) int64 {
 
 // CheckTransactionSanity performs some preliminary checks on a transaction to
 // ensure it is sane.  These checks are context free.
-func CheckTransactionSanity(tx *bchutil.Tx) error {
+func CheckTransactionSanity(tx *bchutil.Tx, MaxBlockSize uint32) error {
 	// A transaction must have at least one input.
 	msgTx := tx.MsgTx()
 	if len(msgTx.TxIn) == 0 {
@@ -218,12 +214,11 @@ func CheckTransactionSanity(tx *bchutil.Tx) error {
 		return ruleError(ErrNoTxOutputs, "transaction has no outputs")
 	}
 
-	// A transaction must not exceed the maximum allowed block payload when
-	// serialized.
+	// A serialized transaction must not exceed the legacy block size
  	serializedTxSize := tx.MsgTx().SerializeSize()
-  	if serializedTxSize > wire.MaxBlockPayload {
+  	if uint32(serializedTxSize) > LegacyMaxBlockSize {
 		str := fmt.Sprintf("serialized transaction is too big - got "+
- 			"%d, max %d", serializedTxSize, wire.MaxBlockPayload)
+ 			"%d, max %d", serializedTxSize, MaxBlockSize)
 		return ruleError(ErrTxTooBig, str)
 	}
 
@@ -471,7 +466,7 @@ func checkBlockHeaderSanity(header *wire.BlockHeader, powLimit *big.Int, timeSou
 //
 // The flags do not modify the behavior of this function directly, however they
 // are needed to pass along to checkBlockHeaderSanity.
-func checkBlockSanity(block *bchutil.Block, powLimit *big.Int, timeSource MedianTimeSource, flags BehaviorFlags) error {
+func checkBlockSanity(block *bchutil.Block, powLimit *big.Int, timeSource MedianTimeSource, flags BehaviorFlags, MaxBlockSize uint32) error {
 	msgBlock := block.MsgBlock()
 	header := &msgBlock.Header
 	err := checkBlockHeaderSanity(header, powLimit, timeSource, flags)
@@ -486,19 +481,20 @@ func checkBlockSanity(block *bchutil.Block, powLimit *big.Int, timeSource Median
 			"any transactions")
 	}
 
-	// A block must not have more transactions than the max block payload.
-	if numTx > wire.MaxBlockPayload {
+	// This is a sanity check setting a floor on the number of transactions
+        // in a block as a multiple of the mimimum size of (empty) transactions.
+	if uint32(numTx) * getMinTransactionSize() > MaxBlockSize {
 		str := fmt.Sprintf("block contains too many transactions - "+
-			"got %d, max %d", numTx, wire.MaxBlockPayload)
+			"got %d, max %d", numTx, MaxBlockSize)
 		return ruleError(ErrTooManyTransactions, str)
 	}
 
 	// A block must not exceed the maximum allowed block payload when
 	// serialized.
  	serializedSize := msgBlock.SerializeSize()
-  	if serializedSize > wire.MaxBlockPayload {
+  	if uint32(serializedSize) > MaxBlockSize {
 		str := fmt.Sprintf("serialized block is too big - got %d, "+
- 			"max %d", serializedSize, wire.MaxBlockPayload)
+ 			"max %d", serializedSize, MaxBlockSize)
 		return ruleError(ErrBlockTooBig, str)
 	}
 
@@ -521,7 +517,7 @@ func checkBlockSanity(block *bchutil.Block, powLimit *big.Int, timeSource Median
 	// Do some preliminary checks on each transaction to ensure they are
 	// sane before continuing.
 	for _, tx := range transactions {
-		err := CheckTransactionSanity(tx)
+		err := CheckTransactionSanity(tx, MaxBlockSize)
 		if err != nil {
 			return err
 		}
@@ -564,10 +560,10 @@ func checkBlockSanity(block *bchutil.Block, powLimit *big.Int, timeSource Median
 		// overflow.
 		lastSigOps := totalSigOps
 		totalSigOps += CountSigOps(tx)
-		if totalSigOps < lastSigOps || totalSigOps > MaxSigOpsPerBlock {
+		if totalSigOps < lastSigOps || uint32(totalSigOps) > GetMaxSigOpsPerBlock(MaxBlockSize) {
 			str := fmt.Sprintf("block contains too many signature "+
 				"operations - got %v, max %v", totalSigOps,
-				MaxSigOpsPerBlock)
+				GetMaxSigOpsPerBlock(MaxBlockSize))
 			return ruleError(ErrTooManySigOps, str)
 		}
 	}
@@ -577,8 +573,8 @@ func checkBlockSanity(block *bchutil.Block, powLimit *big.Int, timeSource Median
 
 // CheckBlockSanity performs some preliminary checks on a block to ensure it is
 // sane before continuing with block processing.  These checks are context free.
-func CheckBlockSanity(block *bchutil.Block, powLimit *big.Int, timeSource MedianTimeSource) error {
-	return checkBlockSanity(block, powLimit, timeSource, BFNone)
+func CheckBlockSanity(block *bchutil.Block, powLimit *big.Int, timeSource MedianTimeSource, MaxBlockSize uint32) error {
+	return checkBlockSanity(block, powLimit, timeSource, BFNone, MaxBlockSize)
 }
 
 // ExtractCoinbaseHeight attempts to extract the height of the block from the
@@ -1044,10 +1040,10 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *bchutil.Block, vi
 		// this on every loop iteration to avoid overflow.
 		lastSigops := totalSigOps
  		totalSigOps += numsigOps
-                if totalSigOps < lastSigops || totalSigOps > MaxSigOpsPerBlock {
+                if totalSigOps < lastSigops || uint32(totalSigOps) > GetMaxSigOpsPerBlock(b.MaxBlockSize) {
                         str := fmt.Sprintf("block contains too many "+
                                 "signature operations - got %v, max %v",
-                                totalSigOps, MaxSigOpsPerBlock)
+                                totalSigOps, GetMaxSigOpsPerBlock(b.MaxBlockSize))
                         return ruleError(ErrTooManySigOps, str)
                 }
 	}
@@ -1217,7 +1213,7 @@ func (b *BlockChain) CheckConnectBlockTemplate(block *bchutil.Block) error {
 		return ruleError(ErrPrevBlockNotBest, str)
 	}
 
-	err := checkBlockSanity(block, b.chainParams.PowLimit, b.timeSource, flags)
+	err := checkBlockSanity(block, b.chainParams.PowLimit, b.timeSource, flags, b.MaxBlockSize)
 	if err != nil {
 		return err
 	}

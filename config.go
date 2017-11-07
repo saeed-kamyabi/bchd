@@ -26,7 +26,8 @@ import (
 	"github.com/bchsuite/bchd/database"
 	_ "github.com/bchsuite/bchd/database/ffldb"
 	"github.com/bchsuite/bchd/mempool"
-        "github.com/btcsuite/btcd/wire"
+        "github.com/bchsuite/bchd/wire"
+        "github.com/bchsuite/bchd/blockchain"
 	"github.com/bchsuite/bchutil"
 	"github.com/btcsuite/go-socks/socks"
 	flags "github.com/jessevdk/go-flags"
@@ -47,8 +48,11 @@ const (
 	defaultMaxRPCConcurrentReqs  = 20
 	defaultDbType                = "ffldb"
 	defaultFreeTxRelayLimit      = 15.0
+        defaultExcessiveBlockSize    = blockchain.DefaultMaxBlockSize
+        ExcessiveBlockSizeMin        = 0
+        ExcessiveBlockSizeMax        = wire.MaxBlockPayload
 	defaultBlockMinSize          = 0
-	defaultBlockMaxSize          = 750000
+	defaultBlockMaxSize          = blockchain.LegacyMaxBlockSize * 2
 	blockMaxSizeMin              = 1000
 	blockMaxSizeMax              = wire.MaxBlockPayload - 1000
 	defaultGenerate              = false
@@ -139,6 +143,7 @@ type config struct {
 	MaxOrphanTxs         int           `long:"maxorphantx" description:"Max number of orphan transactions to keep in memory"`
 	Generate             bool          `long:"generate" description:"Generate (mine) bitcoins using the CPU"`
 	MiningAddrs          []string      `long:"miningaddr" description:"Add the specified payment address to the list of addresses to use for generated blocks -- At least one address is required if the generate option is set"`
+	ExcessiveBlockSize   uint32        `long:"excessiveblocksize" description:"Maximum size blocks this node will accept"`
 	BlockMinSize         uint32        `long:"blockminsize" description:"Mininum block size in bytes to be used when creating a block"`
 	BlockMaxSize         uint32        `long:"blockmaxsize" description:"Maximum block size in bytes to be used when creating a block"`
 	BlockPrioritySize    uint32        `long:"blockprioritysize" description:"Size in bytes for high-priority/low-fee transactions when creating a block"`
@@ -407,6 +412,7 @@ func loadConfig() (*config, []string, error) {
 		RPCCert:              defaultRPCCertFile,
 		MinRelayTxFee:        mempool.DefaultMinRelayTxFee.ToBCH(),
 		FreeTxRelayLimit:     defaultFreeTxRelayLimit,
+		ExcessiveBlockSize:   defaultExcessiveBlockSize,
 		BlockMinSize:         defaultBlockMinSize,
 		BlockMaxSize:         defaultBlockMaxSize,
 		BlockPrioritySize:    mempool.DefaultBlockPrioritySize,
@@ -749,6 +755,19 @@ func loadConfig() (*config, []string, error) {
 	}
 
 	// Limit the max block size to a sane value.
+	if cfg.ExcessiveBlockSize < ExcessiveBlockSizeMin || cfg.ExcessiveBlockSize >
+		ExcessiveBlockSizeMax {
+
+		str := "%s: The blockmaxsize option must be in between %d " +
+			"and %d -- parsed [%d]"
+		err := fmt.Errorf(str, funcName, ExcessiveBlockSizeMin,
+			ExcessiveBlockSizeMax, cfg.ExcessiveBlockSize)
+		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, usageMessage)
+		return nil, nil, err
+	}
+
+	// Limit the max block size to a sane value.
 	if cfg.BlockMaxSize < blockMaxSizeMin || cfg.BlockMaxSize >
 		blockMaxSizeMax {
 
@@ -771,7 +790,10 @@ func loadConfig() (*config, []string, error) {
 		return nil, nil, err
 	}
 
-	// Limit the block priority and minimum block sizes to max block size.
+	// Limit the maximum block size to ExcessiveBlockSize.
+	cfg.BlockMaxSize = minUint32(cfg.BlockMaxSize, cfg.ExcessiveBlockSize)
+
+	// Limit the block priority and minimum block sizes to ExcessiveBlockSize.
 	cfg.BlockPrioritySize = minUint32(cfg.BlockPrioritySize, cfg.BlockMaxSize)
 	cfg.BlockMinSize = minUint32(cfg.BlockMinSize, cfg.BlockMaxSize)
 

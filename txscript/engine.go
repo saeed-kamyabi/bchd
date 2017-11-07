@@ -73,6 +73,9 @@ const (
 	// ScriptVerifyStrictEncoding defines that signature scripts and
 	// public keys must follow the strict encoding requirements.
 	ScriptVerifyStrictEncoding
+
+        // ScriptEnableSighashForkid ensures replay protection for the lecacy chain
+        ScriptEnableSighashForkid
 )
 
 const (
