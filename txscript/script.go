@@ -326,7 +326,7 @@ func calcSignatureHash(script []parsedOpcode, hashType SigHashType, tx *wire.Msg
 		}
 	}
 
-        if hashType&sigHashMask == SigHashForkId {
+        if hashType&SigHashForkId != 0 {
 		switch hashType & sigHashMask {
 		case SigHashNone:
 			txCopy.TxOut = txCopy.TxOut[0:0] // Empty slice.
@@ -374,10 +374,11 @@ func calcSignatureHash(script []parsedOpcode, hashType SigHashType, tx *wire.Msg
 		binary.Write(wbuf, binary.LittleEndian, hashType)
 		return chainhash.DoubleHashB(wbuf.Bytes())
         }
-	wbuf := bytes.NewBuffer(make([]byte, 0, tx.SerializeSize()+4))
-	tx.Serialize(wbuf)
-	binary.Write(wbuf, binary.LittleEndian, hashType)
-	return chainhash.DoubleHashB(wbuf.Bytes())
+        // send back and empty hash
+        // its not clear to me why we'd want any other behavior here
+	var hash chainhash.Hash
+	hash[0] = 0x01
+	return hash[:]
 }
 
 // asSmallInt returns the passed opcode, which must be true according to
