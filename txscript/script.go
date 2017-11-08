@@ -326,50 +326,56 @@ func calcSignatureHash(script []parsedOpcode, hashType SigHashType, tx *wire.Msg
 		}
 	}
 
-	switch hashType & sigHashMask {
-	case SigHashNone:
-		txCopy.TxOut = txCopy.TxOut[0:0] // Empty slice.
-		for i := range txCopy.TxIn {
-			if i != idx {
-				txCopy.TxIn[i].Sequence = 0
+        if hashType&sigHashMask == SigHashForkId {
+		switch hashType & sigHashMask {
+		case SigHashNone:
+			txCopy.TxOut = txCopy.TxOut[0:0] // Empty slice.
+			for i := range txCopy.TxIn {
+				if i != idx {
+					txCopy.TxIn[i].Sequence = 0
+				}
 			}
-		}
+	
+		case SigHashSingle:
+			// Resize output array to up to and including requested index.
+			txCopy.TxOut = txCopy.TxOut[:idx+1]
 
-	case SigHashSingle:
-		// Resize output array to up to and including requested index.
-		txCopy.TxOut = txCopy.TxOut[:idx+1]
-
-		// All but current output get zeroed out.
-		for i := 0; i < idx; i++ {
-			txCopy.TxOut[i].Value = -1
-			txCopy.TxOut[i].PkScript = nil
-		}
-
-		// Sequence on all other inputs is 0, too.
-		for i := range txCopy.TxIn {
-			if i != idx {
-				txCopy.TxIn[i].Sequence = 0
+			// All but current output get zeroed out.
+			for i := 0; i < idx; i++ {
+				txCopy.TxOut[i].Value = -1
+				txCopy.TxOut[i].PkScript = nil
 			}
+
+			// Sequence on all other inputs is 0, too.
+			for i := range txCopy.TxIn {
+				if i != idx {
+					txCopy.TxIn[i].Sequence = 0
+				}
+			}
+
+		default:
+			// Consensus treats undefined hashtypes like normal SigHashAll
+			// for purposes of hash generation.
+			fallthrough
+		case SigHashOld:
+			fallthrough
+		case SigHashAll:
+			// Nothing special here.
+		}
+		if hashType&SigHashAnyOneCanPay != 0 {
+			txCopy.TxIn = txCopy.TxIn[idx : idx+1]
 		}
 
-	default:
-		// Consensus treats undefined hashtypes like normal SigHashAll
-		// for purposes of hash generation.
-		fallthrough
-	case SigHashOld:
-		fallthrough
-	case SigHashAll:
-		// Nothing special here.
-	}
-	if hashType&SigHashAnyOneCanPay != 0 {
-		txCopy.TxIn = txCopy.TxIn[idx : idx+1]
-	}
-
-	// The final hash is the double sha256 of both the serialized modified
-	// transaction and the hash type (encoded as a 4-byte little-endian
-	// value) appended.
-	wbuf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
-	txCopy.Serialize(wbuf)
+		// The final hash is the double sha256 of both the serialized modified
+		// transaction and the hash type (encoded as a 4-byte little-endian
+		// value) appended.
+		wbuf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
+		txCopy.Serialize(wbuf)
+		binary.Write(wbuf, binary.LittleEndian, hashType)
+		return chainhash.DoubleHashB(wbuf.Bytes())
+        }
+	wbuf := bytes.NewBuffer(make([]byte, 0, tx.SerializeSize()+4))
+	tx.Serialize(wbuf)
 	binary.Write(wbuf, binary.LittleEndian, hashType)
 	return chainhash.DoubleHashB(wbuf.Bytes())
 }
