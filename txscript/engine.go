@@ -420,7 +420,7 @@ func (vm *Engine) checkHashTypeEncoding(hashType SigHashType) error {
         // This will not protect from replay protection for any competing fork which
         // chooses to use the same sighash type as Bitcoin Cash
         if vm.hasFlag(ScriptEnableSighashForkid) {
-            if hashType & ^SigHashForkId {
+            if hashType != SigHashForkId {
                 str := fmt.Sprintf("Illegal forkID in script")
 		return scriptError(ErrInvalidSigHashType, str)
             }
