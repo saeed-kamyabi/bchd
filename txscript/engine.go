@@ -404,7 +404,8 @@ func (vm *Engine) subScript() []parsedOpcode {
 // checkHashTypeEncoding returns whether or not the passed hashtype adheres to
 // the strict encoding requirements if enabled.
 func (vm *Engine) checkHashTypeEncoding(hashType SigHashType) error {
-	if !vm.hasFlag(ScriptVerifyStrictEncoding) {
+	if !vm.hasFlag(ScriptVerifyStrictEncoding) &&
+		!vm.hasFlag(ScriptEnableSighashForkid) {
 		return nil
 	}
 
@@ -413,6 +414,17 @@ func (vm *Engine) checkHashTypeEncoding(hashType SigHashType) error {
 		str := fmt.Sprintf("invalid hash type 0x%x", hashType)
 		return scriptError(ErrInvalidSigHashType, str)
 	}
+       
+        // Ensure that the ForkId sighash type is set providing replay protection
+        // between Bitcoin Cash and the Legacy Bitcoin network
+        // This will not protect from replay protection for any competing fork which
+        // chooses to use the same sighash type as Bitcoin Cash
+        if vm.hasFlag(ScriptEnableSighashForkid) {
+            if hashType & ^SigHashForkId {
+                str := fmt.Sprintf("Illegal forkID in script")
+		return scriptError(ErrInvalidSigHashType, str)
+            }
+        }
 	return nil
 }
 
@@ -440,7 +452,6 @@ func (vm *Engine) checkSignatureEncoding(sig []byte) error {
 	if !vm.hasFlag(ScriptVerifyDERSignatures) &&
 		!vm.hasFlag(ScriptVerifyLowS) &&
 		!vm.hasFlag(ScriptVerifyStrictEncoding) {
-
 		return nil
 	}
 
