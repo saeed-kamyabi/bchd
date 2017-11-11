@@ -330,16 +330,16 @@ type gbtWorkState struct {
 	template      *mining.BlockTemplate
 	notifyMap     map[chainhash.Hash]map[int64]chan struct{}
 	timeSource    blockchain.MedianTimeSource
-        MaxBlockSize  uint32
+        chainParams   *chaincfg.Params
 }
 
 // newGbtWorkState returns a new instance of a gbtWorkState with all internal
 // fields initialized and ready to use.
-func newGbtWorkState(timeSource blockchain.MedianTimeSource, MaxBlockSize uint32) *gbtWorkState {
+func newGbtWorkState(timeSource blockchain.MedianTimeSource, chainParams *chaincfg.Params) *gbtWorkState {
 	return &gbtWorkState{
 		notifyMap:  make(map[chainhash.Hash]map[int64]chan struct{}),
 		timeSource: timeSource,
-		MaxBlockSize: MaxBlockSize,
+		chainParams: chainParams,
 	}
 }
 
@@ -1685,8 +1685,8 @@ func (state *gbtWorkState) blockTemplateResult(useCoinbaseValue bool, submitOld 
 		CurTime:      header.Timestamp.Unix(),
 		Height:       int64(template.Height),
 		PreviousHash: header.PrevBlock.String(),
-		SigOpLimit:   int64(blockchain.GetMaxSigOpsPerBlock(state.MaxBlockSize)),
-		SizeLimit:    int64(state.MaxBlockSize),
+		SigOpLimit:   int64(blockchain.GetMaxSigOpsPerBlock(state.chainParams.MaxBlockSize)),
+		SizeLimit:    int64(state.chainParams.MaxBlockSize),
 		Transactions: transactions,
 		Version:      header.Version,
 		LongPollID:   templateID,
@@ -3361,7 +3361,7 @@ func verifyChain(s *rpcServer, level, depth int32) error {
 		// Level 1 does basic chain sanity checks.
 		if level > 0 {
 			err := blockchain.CheckBlockSanity(block,
-				s.cfg.ChainParams.PowLimit, s.cfg.TimeSource, s.cfg.MaxBlockSize)
+				s.cfg.ChainParams, s.cfg.TimeSource)
 			if err != nil {
 				rpcsLog.Errorf("Verify is unable to validate "+
 					"block at hash %v height %d: %v",
@@ -4133,8 +4133,6 @@ type rpcserverConfig struct {
 	// of to provide additional data when queried.
 	TxIndex   *indexers.TxIndex
 	AddrIndex *indexers.AddrIndex
-        // Maxblocksize
-        MaxBlockSize uint32
 }
 
 // newRPCServer returns a new instance of the rpcServer struct.
@@ -4142,7 +4140,7 @@ func newRPCServer(config *rpcserverConfig) (*rpcServer, error) {
 	rpc := rpcServer{
 		cfg:                    *config,
 		statusLines:            make(map[int]string),
-		gbtWorkState:           newGbtWorkState(config.TimeSource, config.MaxBlockSize),
+		gbtWorkState:           newGbtWorkState(config.TimeSource, config.ChainParams),
 		helpCacher:             newHelpCacher(),
 		requestProcessShutdown: make(chan struct{}),
 		quit: make(chan int),

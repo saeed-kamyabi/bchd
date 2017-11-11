@@ -408,12 +408,21 @@ func (vm *Engine) checkHashTypeEncoding(hashType SigHashType) error {
 		!vm.hasFlag(ScriptEnableSighashForkid) {
 		return nil
 	}
-       
-	sigHashType := hashType & ^SigHashAnyOneCanPay & ^SigHashForkId
-	if sigHashType < SigHashAll || sigHashType > SigHashSingle {
-		str := fmt.Sprintf("invalid hash type 0x%x", hashType)
-		return scriptError(ErrInvalidSigHashType, str)
+        
+        if !vm.hasFlag(ScriptEnableSighashForkid) {
+		sigHashType := hashType & ^SigHashAnyOneCanPay
+		if sigHashType < SigHashAll || sigHashType > SigHashSingle {
+			str := fmt.Sprintf("invalid hash type 0x%x", hashType)
+			return scriptError(ErrInvalidSigHashType, str)
+		}
+        } else {
+		sigHashType := hashType & ^SigHashAnyOneCanPay & ^SigHashForkId
+		if sigHashType < SigHashAll || sigHashType > SigHashSingle {
+			str := fmt.Sprintf("invalid hash type 0x%x", hashType)
+			return scriptError(ErrInvalidSigHashType, str)
+		}
 	}
+
 	return nil
 }
 

@@ -80,9 +80,6 @@ type Config struct {
 	// indexing the unconfirmed transactions in the memory pool.
 	// This can be nil if the address index is not enabled.
 	AddrIndex *indexers.AddrIndex
-
-        // MaxBlockSize defines the maximum block size allowed
-        MaxBlockSize uint32
 }
 
 // Policy houses the policy (configuration parameters) which is used to
@@ -621,7 +618,7 @@ func (mp *TxPool) maybeAcceptTransaction(tx *bchutil.Tx, isNew, rateLimit, rejec
 	// Perform preliminary sanity checks on the transaction.  This makes
 	// use of blockchain which contains the invariant rules for what
 	// transactions are allowed into blocks.
-	err := blockchain.CheckTransactionSanity(tx, mp.cfg.MaxBlockSize)
+	err := blockchain.CheckTransactionSanity(tx, mp.cfg.ChainParams.MaxBlockSize)
 	if err != nil {
 		if cerr, ok := err.(blockchain.RuleError); ok {
 			return nil, nil, chainRuleError(cerr)

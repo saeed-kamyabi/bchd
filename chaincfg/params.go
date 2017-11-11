@@ -141,7 +141,7 @@ type Params struct {
 
         // These fields define the block heights at which the specified hardfork
         // became active 
-        uahfHeight int32
+        UAHFheight int32
 
         // These fields define the time at which the specified hardfork
         // became active 
@@ -220,6 +220,11 @@ type Params struct {
 	// BIP44 coin type used in the hierarchical deterministic path for
 	// address generation.
 	HDCoinType uint32
+
+        // MaxBlockSize holds the default max block size which can be overrided at
+        // initialization time with config arguments
+        MaxBlockSize uint32
+        
 }
 
 // MainNetParams defines the network parameters for the main Bitcoin network.
@@ -241,10 +246,11 @@ var MainNetParams = Params{
 	GenesisHash:              &genesisHash,
 	PowLimit:                 mainPowLimit,
 	PowLimitBits:             0x1d00ffff,
+        MaxBlockSize:		  8000000,
 	BIP0034Height:            227931, // 000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8
 	BIP0065Height:            388381, // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
 	BIP0066Height:            363725, // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
-        uahfHeight:               478559, // 000000000000000000651ef99cb9fcbe0dadde1d424bd9f15ff20136191a5eec
+        UAHFheight:               478559, // 000000000000000000651ef99cb9fcbe0dadde1d424bd9f15ff20136191a5eec
         EDA0002:                  1510600000,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
@@ -335,11 +341,12 @@ var RegressionNetParams = Params{
 	GenesisHash:              &regTestGenesisHash,
 	PowLimit:                 regressionPowLimit,
 	PowLimitBits:             0x207fffff,
+        MaxBlockSize:		  8000000,
 	CoinbaseMaturity:         100,
 	BIP0034Height:            100000000, // Not active - Permit ver 1 blocks
 	BIP0065Height:            1351,      // Used by regression tests
 	BIP0066Height:            1251,      // Used by regression tests
-        uahfHeight:               1451,      // Used by regression tests
+        UAHFheight:               1451,      // Used by regression tests
         EDA0002:                  1510600000,      // Used by regression tests
 	SubsidyReductionInterval: 150,
 	TargetTimespan:           time.Hour * 24 * 14, // 14 days
@@ -413,10 +420,11 @@ var TestNet3Params = Params{
 	GenesisHash:              &testNet3GenesisHash,
 	PowLimit:                 testNet3PowLimit,
 	PowLimitBits:             0x1d00ffff,
+        MaxBlockSize:		  8000000,
 	BIP0034Height:            21111,  // 0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8
 	BIP0065Height:            581885, // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
 	BIP0066Height:            330776, // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
-        uahfHeight:               1155876, // 00000000000e38fef93ed9582a7df43815d5c2ba9fd37ef70c9a0ea4a285b8f5
+        UAHFheight:               1155876, // 00000000000e38fef93ed9582a7df43815d5c2ba9fd37ef70c9a0ea4a285b8f5
         EDA0002:                  1510600000,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
@@ -503,6 +511,7 @@ var SimNetParams = Params{
 	GenesisHash:              &simNetGenesisHash,
 	PowLimit:                 simNetPowLimit,
 	PowLimitBits:             0x207fffff,
+        MaxBlockSize:		  8000000,
 	BIP0034Height:            0, // Always active on simnet
 	BIP0065Height:            0, // Always active on simnet
 	BIP0066Height:            0, // Always active on simnet

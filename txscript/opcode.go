@@ -2049,7 +2049,7 @@ func opcodeCheckSig(op *parsedOpcode, vm *Engine) error {
 	subScript = removeOpcodeByData(subScript, fullSigBytes)
 
 	// Generate the signature hash based on the signature hash type.
-	hash := calcSignatureHash(subScript, hashType, &vm.tx, vm.txIdx)
+	hash := calcSignatureHash(subScript, hashType, &vm.tx, vm.txIdx, vm.hasFlag(ScriptEnableSighashForkid))
 
 	pubKey, err := bchec.ParsePubKey(pkBytes, bchec.S256())
 	if err != nil {
@@ -2300,7 +2300,7 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 		}
 
 		// Generate the signature hash based on the signature hash type.
-		hash := calcSignatureHash(script, hashType, &vm.tx, vm.txIdx)
+		hash := calcSignatureHash(script, hashType, &vm.tx, vm.txIdx, vm.hasFlag(ScriptEnableSighashForkid))
 
 		var valid bool
 		if vm.sigCache != nil {

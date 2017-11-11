@@ -13,6 +13,7 @@ import (
 	"github.com/bchsuite/bchd/database"
 	_ "github.com/bchsuite/bchd/database/ffldb"
 	"github.com/bchsuite/bchd/wire"
+	"github.com/bchsuite/bchd/blockchain"
 	"github.com/bchsuite/bchutil"
 	flags "github.com/jessevdk/go-flags"
 )
@@ -21,28 +22,30 @@ const (
 	defaultDbType   = "ffldb"
 	defaultDataFile = "bootstrap.dat"
 	defaultProgress = 10
+        defaultExcessiveBlockSize    = blockchain.DefaultMaxBlockSize
 )
 
 var (
-	bchdHomeDir     = bchutil.AppDataDir("bchd", false)
-	defaultDataDir  = filepath.Join(bchdHomeDir, "data")
-	knownDbTypes    = database.SupportedDrivers()
-	activeNetParams = &chaincfg.MainNetParams
+	bchdHomeDir         = bchutil.AppDataDir("bchd", false)
+	defaultDataDir      = filepath.Join(bchdHomeDir, "data")
+	knownDbTypes        = database.SupportedDrivers()
+	activeNetParams     = &chaincfg.MainNetParams
 )
 
 // config defines the configuration options for findcheckpoint.
 //
 // See loadConfig for details on the configuration load process.
 type config struct {
-	DataDir        string `short:"b" long:"datadir" description:"Location of the bchd data directory"`
-	DbType         string `long:"dbtype" description:"Database backend to use for the Block Chain"`
-	TestNet3       bool   `long:"testnet" description:"Use the test network"`
-	RegressionTest bool   `long:"regtest" description:"Use the regression test network"`
-	SimNet         bool   `long:"simnet" description:"Use the simulation test network"`
-	InFile         string `short:"i" long:"infile" description:"File containing the block(s)"`
-	TxIndex        bool   `long:"txindex" description:"Build a full hash-based transaction index which makes all transactions available via the getrawtransaction RPC"`
-	AddrIndex      bool   `long:"addrindex" description:"Build a full address-based transaction index which makes the searchrawtransactions RPC available"`
-	Progress       int    `short:"p" long:"progress" description:"Show a progress message each time this number of seconds have passed -- Use 0 to disable progress announcements"`
+	DataDir      		string `short:"b" long:"datadir" description:"Location of the bchd data directory"`
+	DbType         		string `long:"dbtype" description:"Database backend to use for the Block Chain"`
+	TestNet3       		bool   `long:"testnet" description:"Use the test network"`
+	RegressionTest 		bool   `long:"regtest" description:"Use the regression test network"`
+	SimNet         		bool   `long:"simnet" description:"Use the simulation test network"`
+	InFile         		string `short:"i" long:"infile" description:"File containing the block(s)"`
+	TxIndex        		bool   `long:"txindex" description:"Build a full hash-based transaction index which makes all transactions available via the getrawtransaction RPC"`
+	AddrIndex  	  	bool   `long:"addrindex" description:"Build a full address-based transaction index which makes the searchrawtransactions RPC available"`
+	Progress       		int    `short:"p" long:"progress" description:"Show a progress message each time this number of seconds have passed -- Use 0 to disable progress announcements"`
+	ExcessiveBlockSize	uint32 `long:"excessiveblocksize" description:"Set a configurable maximum blocksize"`
 }
 
 // filesExists reports whether the named file or directory exists.
@@ -66,6 +69,16 @@ func validDbType(dbType string) bool {
 	return false
 }
 
+// minUint32 is a helper function to return the minimum of two uint32s.
+// This avoids a math import and the need to cast to floats.
+func minUint32(a, b uint32) uint32 {
+        if a < b {
+                return a
+        }
+        return b
+}
+
+
 // netName returns the name used when referring to a bitcoin network.  At the
 // time of writing, bchd currently places blocks for testnet version 3 in the
 // data and log directory "testnet", which does not match the Name field of the
@@ -88,10 +101,11 @@ func netName(chainParams *chaincfg.Params) string {
 func loadConfig() (*config, []string, error) {
 	// Default config.
 	cfg := config{
-		DataDir:  defaultDataDir,
-		DbType:   defaultDbType,
-		InFile:   defaultDataFile,
-		Progress: defaultProgress,
+		DataDir:      defaultDataDir,
+		DbType:       defaultDbType,
+		InFile:       defaultDataFile,
+		Progress:     defaultProgress,
+                ExcessiveBlockSize:   defaultExcessiveBlockSize,
 	}
 
 	// Parse command line options.
@@ -156,6 +170,9 @@ func loadConfig() (*config, []string, error) {
 		parser.WriteHelp(os.Stderr)
 		return nil, nil, err
 	}
+
+        // Override default MaxBlockSize
+        activeNetParams.MaxBlockSize = minUint32(wire.MaxBlockPayload, cfg.ExcessiveBlockSize)
 
 	return &cfg, remainingArgs, nil
 }

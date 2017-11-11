@@ -24,7 +24,7 @@ func RawTxInSignature(tx *wire.MsgTx, idx int, subScript []byte,
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse output script: %v", err)
 	}
-	hash := calcSignatureHash(parsedScript, hashType, tx, idx)
+	hash := calcSignatureHash(parsedScript, hashType, tx, idx, true)
 	signature, err := key.Sign(hash)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign tx input: %s", err)
@@ -292,7 +292,7 @@ sigLoop:
 		// however, assume no sigs etc are in the script since that
 		// would make the transaction nonstandard and thus not
 		// MultiSigTy, so we just need to hash the full thing.
-		hash := calcSignatureHash(pkPops, hashType, tx, idx)
+		hash := calcSignatureHash(pkPops, hashType, tx, idx, true)
 
 		for _, addr := range addresses {
 			// All multisig addresses should be pubkey addresses
