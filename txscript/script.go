@@ -326,66 +326,65 @@ func calcSignatureHash(script []parsedOpcode, hashType SigHashType, tx *wire.Msg
 		}
 	}
 
-        if hashType&SigHashForkId == 0 && EnableForkid {
-        	// send back an empty hash
-        	// its not clear to me why we'd want any other behavior here
-                // but this could be wrong!
+        if hashType&SigHashForkId != 0 && EnableForkid || !EnableForkid {
+   	     log.Tracef("hashType: %x", hashType)
+		switch hashType & sigHashMask {
+		case SigHashNone:
+       	         log.Trace("CASE: SigHashNone")
+			txCopy.TxOut = txCopy.TxOut[0:0] // Empty slice.
+			for i := range txCopy.TxIn {
+				if i != idx {
+					txCopy.TxIn[i].Sequence = 0
+				}
+			}
+	
+		case SigHashSingle:
+       	         log.Trace("CASE: SigHashSingle")
+			// Resize output array to up to and including requested index.
+			txCopy.TxOut = txCopy.TxOut[:idx+1]
+	
+			// All but current output get zeroed out.
+			for i := 0; i < idx; i++ {
+				txCopy.TxOut[i].Value = -1
+				txCopy.TxOut[i].PkScript = nil
+			}
+	
+			// Sequence on all other inputs is 0, too.
+			for i := range txCopy.TxIn {
+				if i != idx {
+					txCopy.TxIn[i].Sequence = 0
+				}
+			}
+
+		default:
+			// Consensus treats undefined hashtypes like normal SigHashAll
+			// for purposes of hash generation.
+			fallthrough
+		case SigHashOld:
+			fallthrough
+		case SigHashAll:
+       	         log.Trace("CASE: SigHashAll")
+			// Nothing special here.
+		}
+		if hashType&SigHashAnyOneCanPay != 0 {
+       	         log.Trace("CASE: SigHashAnyone")
+			txCopy.TxIn = txCopy.TxIn[idx : idx+1]
+		}
+
+		// The final hash is the double sha256 of both the serialized modified
+		// transaction and the hash type (encoded as a 4-byte little-endian
+		// value) appended.
+		wbuf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
+		txCopy.Serialize(wbuf)
+		binary.Write(wbuf, binary.LittleEndian, hashType)
+		return chainhash.DoubleHashB(wbuf.Bytes())
+        } else { 
+       		// send back an empty hash
 		var hash chainhash.Hash
 		hash[0] = 0x01
                 log.Trace("Returning empty sig because forkid required but not present")
 		return hash[:]
 	}
-        log.Trace("Confirming forkid detected")
-	switch hashType & sigHashMask {
-	case SigHashNone:
-                log.Trace("CASE: SigHashNone")
-		txCopy.TxOut = txCopy.TxOut[0:0] // Empty slice.
-		for i := range txCopy.TxIn {
-			if i != idx {
-				txCopy.TxIn[i].Sequence = 0
-			}
-		}
-	
-	case SigHashSingle:
-                log.Trace("CASE: SigHashSingle")
-		// Resize output array to up to and including requested index.
-		txCopy.TxOut = txCopy.TxOut[:idx+1]
-
-		// All but current output get zeroed out.
-		for i := 0; i < idx; i++ {
-			txCopy.TxOut[i].Value = -1
-			txCopy.TxOut[i].PkScript = nil
-		}
-
-		// Sequence on all other inputs is 0, too.
-		for i := range txCopy.TxIn {
-			if i != idx {
-				txCopy.TxIn[i].Sequence = 0
-			}
-		}
-
-	default:
-		// Consensus treats undefined hashtypes like normal SigHashAll
-		// for purposes of hash generation.
-		fallthrough
-	case SigHashOld:
-		fallthrough
-	case SigHashAll:
-                log.Trace("CASE: SigHashAll")
-		// Nothing special here.
-	}
-	if hashType&SigHashAnyOneCanPay != 0 {
-                log.Trace("CASE: SigHashAnyone")
-		txCopy.TxIn = txCopy.TxIn[idx : idx+1]
-	}
-
-	// The final hash is the double sha256 of both the serialized modified
-	// transaction and the hash type (encoded as a 4-byte little-endian
-	// value) appended.
-	wbuf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
-	txCopy.Serialize(wbuf)
-	binary.Write(wbuf, binary.LittleEndian, hashType)
-	return chainhash.DoubleHashB(wbuf.Bytes())
 }
 
 // asSmallInt returns the passed opcode, which must be true according to
