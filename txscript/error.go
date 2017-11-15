@@ -184,6 +184,10 @@ const (
 	// half order.
 	ErrSigHighS
 
+
+        // ErrMinimalIf is returned if the minimalIF flag is ever used
+        ErrMinimalIf
+
 	// ErrNotPushOnly is returned when a script that is required to only
 	// push data to the stack performs other operations.  A couple of cases
 	// where this applies is for a pay-to-script-hash signature script when

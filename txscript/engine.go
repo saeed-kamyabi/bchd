@@ -58,6 +58,10 @@ const (
 	// of BIP0062.
 	ScriptVerifyLowS
 
+	// Require the argument of OP_IF/NOTIF to be exactly 0x01 or empty vector
+        // Currently Unused
+        ScriptVerifyMinimalIf
+
 	// ScriptVerifyMinimalData defines that signatures must use the smallest
 	// push operator. This is both rules 3 and 4 of BIP0062.
 	ScriptVerifyMinimalData
